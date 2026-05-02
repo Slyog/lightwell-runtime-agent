@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from string import Template
 from urllib.parse import parse_qs
+from urllib.parse import quote
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
@@ -236,16 +237,49 @@ def experiments_overview():
     rows = []
     for experiment in list_experiments(LOG_DIR):
         rows.append(
-            f"<tr><td>{esc(experiment['name'])}</td>"
+            f'<tr><td><a href="/experiments/{quote(experiment["name"])}">{esc(experiment["name"])}</a></td>'
             f"<td>{esc(experiment['run_count'])}</td>"
             f"<td>{esc(experiment['success_count'])}</td>"
             f"<td>{esc(experiment['failure_count'])}</td>"
             f"<td>{esc(experiment['last_run_timestamp'])}</td>"
-            f'<td><a href="/history?experiment={esc(experiment["name"])}">history</a></td></tr>'
+            f'<td><a href="/history?experiment={quote(experiment["name"])}">history</a></td></tr>'
         )
     return render_template(
         "experiments.html",
         rows="\n".join(rows) or '<tr><td colspan="6">No experiment runs found.</td></tr>',
+    )
+
+
+@app.get("/experiments/{experiment_name}", response_class=HTMLResponse)
+def experiment_detail(experiment_name: str):
+    runs = [run for run in list_runs(LOG_DIR) if run["experiment"] == experiment_name]
+    if not runs:
+        return HTMLResponse("Experiment not found", status_code=404)
+
+    success_count = sum(1 for run in runs if run["success"] is True)
+    failure_count = sum(1 for run in runs if run["success"] is False)
+    last_run_timestamp = max((run["timestamp"] for run in runs if run["timestamp"]), default="")
+    rows = []
+    for run_item in runs:
+        success = "unknown" if run_item["success"] is None else str(run_item["success"]).lower()
+        rows.append(
+            f"<tr><td>{esc(run_item['timestamp'])}</td>"
+            f"<td>{esc(run_item['objective'])}</td>"
+            f"<td>{esc(success)}</td>"
+            f"<td>{esc(display_failure_category(run_item['success'], run_item['failure_category']))}</td>"
+            f"<td>{esc(run_item['trace_count'])}</td>"
+            f'<td><a href="/history/{esc(run_item["run_id"])}">detail</a></td></tr>'
+        )
+
+    return render_template(
+        "experiment_detail.html",
+        experiment_name=esc(experiment_name),
+        run_count=esc(len(runs)),
+        success_count=esc(success_count),
+        failure_count=esc(failure_count),
+        last_run_timestamp=esc(last_run_timestamp),
+        filtered_history_url=f"/history?experiment={quote(experiment_name)}",
+        rows="\n".join(rows),
     )
 
 

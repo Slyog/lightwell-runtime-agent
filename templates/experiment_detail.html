@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Experiment Detail</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <h1>Experiment Detail</h1>
+      <nav><a href="/">Home</a><a href="/">New run</a><a href="/history">History</a><a href="/experiments">Experiments</a></nav>
+    </header>
+
+    <section class="panel result-grid">
+      <div><span>experiment</span><strong>$experiment_name</strong></div>
+      <div><span>run_count</span><strong>$run_count</strong></div>
+      <div><span>success_count</span><strong>$success_count</strong></div>
+      <div><span>failure_count</span><strong>$failure_count</strong></div>
+      <div><span>last_run_timestamp</span><strong>$last_run_timestamp</strong></div>
+      <div><span>filtered_history</span><strong><a href="$filtered_history_url">open</a></strong></div>
+    </section>
+
+    <section class="panel">
+      <table>
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Objective</th>
+            <th>Success</th>
+            <th>Failure</th>
+            <th>Traces</th>
+            <th>Detail</th>
+          </tr>
+        </thead>
+        <tbody>$rows</tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>
