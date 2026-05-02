@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from client import AgentRunClient
 from experiments import EXPERIMENTS, get_experiment, list_experiments as list_experiment_names
-from history_reader import get_run, list_experiments, list_runs
+from history_reader import get_run, list_experiments, list_runs, normalize_experiment_name
 from logger import JsonlLogger
 from runner import run_task
 
@@ -45,7 +45,7 @@ def option_tags(values, selected="") -> str:
 
 
 def experiment_options(selected="") -> str:
-    tags = ['<option value="">custom objective</option>']
+    tags = ['<option value="">custom</option>']
     tags.extend(option_tags(list_experiment_names(), selected).splitlines())
     return "\n".join(tags)
 
@@ -100,6 +100,7 @@ def latest_run_summary() -> str:
         f"<div><span>success</span><strong>{esc(success)}</strong></div>"
         f"<div><span>failure_category</span><strong>{esc(display_failure_category(latest['success'], latest['failure_category']))}</strong></div>"
         f"<div><span>trace_count</span><strong>{esc(latest['trace_count'])}</strong></div>"
+        f"<div><span>experiment</span><strong>{esc(latest['experiment'])}</strong></div>"
         f"<div class=\"wide\"><span>objective</span><strong>{esc(latest['objective'])}</strong></div>"
         f'<div><a href="/history/{esc(latest["run_id"])}">Open detail</a></div>'
         "</div>"
@@ -197,7 +198,7 @@ def render_result(result: dict, mode: str, max_attempts: int, base_url: str) -> 
         trace_ids=trace_items or "<li>none</li>",
         observations=observation_items or "<li>none</li>",
         task=esc(result.get("task", "")),
-        experiment=esc(result.get("experiment", "none")),
+        experiment=esc(normalize_experiment_name(result.get("experiment"))),
         log_file=esc(result.get("log_file", "not written")),
         mode=esc(mode),
         max_attempts=esc(max_attempts),
@@ -210,7 +211,8 @@ def history(request: Request):
     status_filter = request.query_params.get("status", "")
     if status_filter not in {"", "success", "failure"}:
         status_filter = ""
-    experiment_filter = request.query_params.get("experiment", "").strip()
+    raw_experiment_filter = request.query_params.get("experiment", "").strip()
+    experiment_filter = normalize_experiment_name(raw_experiment_filter) if raw_experiment_filter else ""
     rows = []
     for run_item in filter_runs(list_runs(LOG_DIR), status_filter, experiment_filter):
         success = "unknown" if run_item["success"] is None else str(run_item["success"]).lower()
@@ -252,6 +254,7 @@ def experiments_overview():
 
 @app.get("/experiments/{experiment_name}", response_class=HTMLResponse)
 def experiment_detail(experiment_name: str):
+    experiment_name = normalize_experiment_name(experiment_name)
     runs = [run for run in list_runs(LOG_DIR) if run["experiment"] == experiment_name]
     if not runs:
         return HTMLResponse("Experiment not found", status_code=404)

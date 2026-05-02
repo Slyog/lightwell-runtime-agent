@@ -51,6 +51,13 @@ def normalize_failure_category(success: bool | None, failure_category: Any) -> s
     return "none" if success is True else str(failure_category or "unknown")
 
 
+def normalize_experiment_name(value: Any) -> str:
+    text = "" if value is None else str(value).strip()
+    if not text or text.lower() == "custom objective":
+        return "custom"
+    return text
+
+
 def summarize_run(path: Path) -> Dict[str, Any]:
     records = read_jsonl(path)
     final = next((record for record in reversed(records) if record.get("event") in {"observe", "failure"}), {})
@@ -62,7 +69,7 @@ def summarize_run(path: Path) -> Dict[str, Any]:
     trace_ids = collect_trace_ids(records)
     timestamp = first_present(records, "timestamp")
 
-    experiment = first_present(records, "experiment") or "custom"
+    experiment = normalize_experiment_name(first_present(records, "experiment"))
 
     return {
         "run_id": path.stem,

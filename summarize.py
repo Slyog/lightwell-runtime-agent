@@ -48,6 +48,13 @@ def bool_or_unknown(value: Any) -> str:
     return "unknown"
 
 
+def normalize_experiment_name(value: Any) -> str:
+    text = "" if value is None else str(value).strip()
+    if not text or text.lower() == "custom objective":
+        return "custom"
+    return text
+
+
 def preview(value: Any, limit: int = 240) -> str:
     if value in (None, ""):
         return ""
@@ -112,7 +119,7 @@ def summarize(path: Path) -> Dict[str, Any]:
 
     summary = {
         "total_events": len(events),
-        "experiment": first_present(events, "experiment") or "none",
+        "experiment": normalize_experiment_name(first_present(events, "experiment")),
         "final_success": final_success,
         "failure_category": "none" if final_success is True else failure_category or classify_failure(final_stderr, bool(final_event.get("timeout")), str(status or "")),
         "is_agent_failure": final_event.get("is_agent_failure"),
