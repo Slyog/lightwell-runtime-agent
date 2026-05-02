@@ -1,6 +1,8 @@
-# Co-Worker Light Playground
+# Lightwell Runtime Agent
 
-This playground is an external observation layer for the AI Execution Engine. It does not generate or execute code itself; it sends objectives to `/agent-runs`, records the engine response, and reports what actually happened.
+A local agent workspace that sends coding objectives to an external AI Execution Engine, observes real runtime results, classifies failures, and stores execution traces.
+
+Lightwell Runtime Agent is the control, UI, and observation layer. The AI Execution Engine is the runtime backend that generates code, executes it in Docker, repairs failures, and returns `trace_ids`, `stdout`, and `stderr`.
 
 ## What This Proves
 
