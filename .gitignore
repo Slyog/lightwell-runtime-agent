@@ -1,0 +1,15 @@
+**/__pycache__/
+*.pyc
+.env
+.venv/
+venv/
+data/
+results/*.jsonl
+node_modules/
+*.log
+agent_runs.jsonl
+cli-smoke-*.jsonl
+real-validation-*.jsonl
+ui-*.jsonl
+unreachable-validation.jsonl
+validation-*.jsonl

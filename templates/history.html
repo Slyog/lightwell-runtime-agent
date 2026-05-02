@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>$title</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <h1>$title</h1>
+      <nav><a href="/">New run</a></nav>
+    </header>
+
+    <section class="panel">
+      <table>
+        <thead><tr><th>Log file</th><th>Bytes</th><th>Modified</th></tr></thead>
+        <tbody>$rows</tbody>
+      </table>
+    </section>
+
+    <section class="panel summary">
+      $summary
+    </section>
+  </main>
+</body>
+</html>

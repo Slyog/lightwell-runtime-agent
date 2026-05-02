@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Run Result</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <h1>Run Result</h1>
+      <nav><a href="/">New run</a><a href="/history">History</a></nav>
+    </header>
+
+    <section class="panel result-grid">
+      <div><span>success</span><strong>$success</strong></div>
+      <div><span>failure_category</span><strong>$failure_category</strong></div>
+      <div><span>is_agent_failure</span><strong>$is_agent_failure</strong></div>
+      <div><span>is_infrastructure_failure</span><strong>$is_infrastructure_failure</strong></div>
+      <div><span>mode</span><strong>$mode</strong></div>
+      <div><span>max_attempts</span><strong>$max_attempts</strong></div>
+      <div><span>experiment</span><strong>$experiment</strong></div>
+      <div><span>log</span><strong>$log_file</strong></div>
+    </section>
+
+    <section class="panel">
+      <h2>Objective</h2>
+      <pre>$task</pre>
+      <h2>Base URL</h2>
+      <pre>$base_url</pre>
+    </section>
+
+    <section class="panel">
+      <h2>stdout</h2>
+      <pre>$stdout</pre>
+      <h2>stderr</h2>
+      <pre>$stderr</pre>
+    </section>
+
+    <section class="panel two">
+      <div>
+        <h2>trace_ids</h2>
+        <ul>$trace_ids</ul>
+      </div>
+      <div>
+        <h2>observations</h2>
+        <ul>$observations</ul>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lightwell Playground</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <h1>Lightwell Playground</h1>
+      <nav><a href="/history">History</a></nav>
+    </header>
+
+    <form action="/run" method="post" class="panel">
+      <label>
+        Objective
+        <textarea name="objective" rows="7" placeholder="Write Python code that prints hello">$objective</textarea>
+      </label>
+
+      <div class="grid">
+        <label>
+          Mode
+          <select name="mode">$mode_options</select>
+        </label>
+        <label>
+          Experiment
+          <select name="experiment">$experiment_options</select>
+        </label>
+        <label>
+          Max attempts
+          <input name="max_attempts" type="number" min="1" max="5" value="$max_attempts">
+        </label>
+      </div>
+
+      <label>
+        Base URL
+        <input name="base_url" value="$base_url">
+      </label>
+
+      <button type="submit">Run</button>
+    </form>
+  </main>
+</body>
+</html>
