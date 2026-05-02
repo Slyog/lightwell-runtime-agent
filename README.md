@@ -2,44 +2,31 @@
 
 A local agent workspace that sends coding objectives to an external AI Execution Engine, observes real runtime results, classifies failures, and stores execution traces.
 
-Lightwell Runtime Agent is the control, UI, and observation layer. The AI Execution Engine is the runtime backend that generates code, executes it in Docker, repairs failures, and returns `trace_ids`, `stdout`, and `stderr`.
+Lightwell is the control, UI, and observation layer. The AI Execution Engine is the runtime backend that generates code, executes it in Docker, repairs failures, and returns `trace_ids`, `stdout`, and `stderr`.
 
-## What This Proves
+## What Lightwell Is
 
-- The playground treats the execution engine as an external black-box API.
-- It validates agent behavior through real runtime responses.
-- It separates agent/code failures from infrastructure failures.
-- It records JSONL traces for later inspection.
-- It supports predefined experiments for repeatable behavior testing.
-- It can summarize logs into readable outcomes.
+- A local UI and CLI for submitting coding objectives.
+- An observation layer over the AI Execution Engine `/agent-runs` API.
+- A JSONL-backed run history and inspection workspace.
+- A simple experiment runner for repeatable behavior checks.
+- A failure classifier that separates agent/code failures from infrastructure failures.
 
-## Current Limitation
+## What Lightwell Is Not
 
-- Docker must be available for full sandbox execution.
-- If Docker is unavailable, the playground still correctly classifies it as infrastructure failure.
+- It is not the runtime backend.
+- It does not execute generated code itself.
+- It does not replace Docker sandboxing.
+- It is not a chatbot.
+- It does not use a database or background job system.
 
-## Start The Engine
+## Relation To AI Execution Engine
 
-The local engine was found at:
-
-```powershell
-C:\Users\slyse\Documents\ExecutionEngine\AIExecutionEngine
+```text
+Lightwell Runtime Agent -> AI Execution Engine -> Docker Sandbox
 ```
 
-Install its dependencies if needed:
-
-```powershell
-cd C:\Users\slyse\Documents\ExecutionEngine\AIExecutionEngine
-python -m pip install -r requirements.txt
-```
-
-Start it with the documented command:
-
-```powershell
-python -m uvicorn api:app --host 127.0.0.1 --port 8000
-```
-
-The live `/agent-runs` schema expects:
+Lightwell sends:
 
 ```json
 {
@@ -48,30 +35,68 @@ The live `/agent-runs` schema expects:
 }
 ```
 
-The response includes `status`, `attempts`, `final_stdout`, `final_stderr`, and `trace_ids`.
+to the engine:
 
-## Run The Playground
+```text
+POST /agent-runs
+```
 
-From this directory:
+The engine returns execution truth: status, stdout, stderr, timeout state, and trace IDs. Lightwell records and displays those results.
+
+## Routes
+
+- `/`
+  - Home workspace.
+  - Shows the objective form, experiment selector, run controls, history link, and latest run summary.
+
+- `/run`
+  - Form submit endpoint.
+  - Calls the existing runner/client logic and renders the run result.
+
+- `/history`
+  - JSONL-backed run overview.
+  - Supports basic query filters:
+    - `?status=success`
+    - `?status=failure`
+    - `?experiment=<name>`
+
+- `/history/{run_id}`
+  - Run inspection page.
+  - Shows objective, metadata, trace IDs, per-attempt blocks, stdout, stderr, observations, and raw JSON.
+
+- `/experiments`
+  - Read-only experiment overview.
+  - Groups historical runs by normalized experiment name.
+
+- `/experiments/{experiment_name}`
+  - Read-only experiment detail page.
+  - Shows counts and runs for one experiment.
+
+## JSONL Source Of Truth
+
+JSONL logs are the persistent state for Lightwell.
+
+- UI runs write logs named like `ui-<timestamp>-<experiment>.jsonl`.
+- CLI runs can write any JSONL path using `--log`.
+- History and experiment pages read JSONL directly.
+- Malformed JSONL lines are skipped.
+- Raw JSON is preserved and shown on run detail pages for debugging.
+
+No database is used.
+
+## Run Locally
+
+Start the AI Execution Engine separately:
+
+```powershell
+cd C:\Users\slyse\Documents\ExecutionEngine\AIExecutionEngine
+python -m uvicorn api:app --host 127.0.0.1 --port 8000
+```
+
+Start Lightwell:
 
 ```powershell
 cd C:\Users\slyse\Documents\agentcoding
-python runner.py "Write Python code that prints hello from the real engine" --mode single --base-url http://127.0.0.1:8000 --log real-validation-single.jsonl
-python runner.py "Write Python code that imports pandas and prints a fallback message if pandas is unavailable" --mode retry_heavy --base-url http://127.0.0.1:8000 --log real-validation-retry-heavy.jsonl
-python runner.py --experiment missing_dependency --mode retry_heavy --base-url http://127.0.0.1:8000 --log experiment-missing-dependency.jsonl
-```
-
-Available modes:
-
-- `single`: one planned playground step, with one engine attempt per request.
-- `retry_heavy`: up to five playground attempts; each request asks the engine for up to five internal attempts.
-- `variation`: runs three slight phrasings and compares outcomes.
-
-## Local UI
-
-Start the Lightwell UI with:
-
-```powershell
 python -m uvicorn app:app --host 127.0.0.1 --port 8080
 ```
 
@@ -81,11 +106,17 @@ Open:
 http://127.0.0.1:8080
 ```
 
-The UI submits objectives or predefined experiments through the existing playground runner and writes JSONL logs in this directory. `/history` lists JSONL logs and opens summaries using `summarize.py`.
+CLI usage still works:
+
+```powershell
+python runner.py "Write Python code that prints hello" --mode single --base-url http://127.0.0.1:8000
+python runner.py --experiment missing_dependency --mode retry_heavy --base-url http://127.0.0.1:8000
+python summarize.py agent_runs.jsonl
+```
 
 ## Experiments
 
-Predefined experiments live in `experiments/registry.py`. They are just named objectives:
+Predefined experiments live in `experiments/registry.py`.
 
 - `missing_dependency`
 - `file_assumption`
@@ -93,60 +124,33 @@ Predefined experiments live in `experiments/registry.py`. They are just named ob
 - `standard_library_fallback`
 - `syntax_simple`
 
-Run one with:
+Experiments are read-only named objectives. Lightwell does not provide experiment editing or creation UI.
 
-```powershell
-python runner.py --experiment missing_dependency --mode retry_heavy --base-url http://127.0.0.1:8000
-```
+## Failure Semantics
 
-Direct task input still works:
-
-```powershell
-python runner.py "Write Python code that prints hello" --mode single --base-url http://127.0.0.1:8000
-```
-
-## Summarize Logs
-
-Summarize one JSONL log with:
-
-```powershell
-python summarize.py real-validation-classified.jsonl
-```
-
-The summary reports total events, experiment name when present, final success, failure category, whether the failure is agent/code or infrastructure, trace count, and short stdout/stderr previews. Older logs with missing classification fields are classified from recorded stderr when possible.
-
-## Validation Result
-
-Validation against the real engine reached `POST /agent-runs` successfully.
-
-- `single` produced trace id `12ad7196-2a49-412e-aba8-d0becb26eb22`.
-- `retry_heavy` produced 25 engine trace ids across five playground attempts.
-- JSONL logs recorded execute and observe events, including status, stdout, stderr, timeout state, and trace ids.
-
-The engine did not complete Python execution because Docker Desktop's Linux engine was not reachable:
+Successful runs display:
 
 ```text
-failed to connect to the docker API at npipe:////./pipe/dockerDesktopLinuxEngine
+failure_category = none
 ```
 
-That is an environment constraint, not a playground schema failure. The playground correctly reported `success: false`, preserved stdout/stderr, and surfaced trace ids from the real engine.
+Failed runs preserve meaningful categories such as:
 
-## Known Infrastructure Failure: Docker Engine Unavailable
+- `engine_unreachable`
+- `docker_unavailable`
+- `sandbox_start_failed`
+- `timeout`
+- `missing_dependency`
+- `syntax_error`
+- `runtime_error`
+- `unknown_error`
 
-When the engine returns stderr like:
+Infrastructure failures are not counted as agent/code failures.
 
-```text
-failed to connect to the docker API at npipe:////./pipe/dockerDesktopLinuxEngine
-```
+## Current Limitations
 
-the playground classifies the run as:
-
-```json
-{
-  "failure_category": "docker_unavailable",
-  "is_agent_failure": false,
-  "is_infrastructure_failure": true
-}
-```
-
-This means the request reached `/agent-runs`, but the engine could not start its Docker-backed sandbox. It is not counted as an agent/code failure.
+- Docker must be available for full sandbox execution.
+- If Docker is unavailable, Lightwell still classifies it as an infrastructure failure.
+- The UI is local-first and has no authentication.
+- There is no database, pagination, charts, or background processing.
+- Experiment and run detail pages are read-only.
