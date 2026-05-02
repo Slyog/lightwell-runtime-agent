@@ -154,3 +154,9 @@ dd {
   margin: 0;
   word-break: break-word;
 }
+
+.attempt-block {
+  border-top: 1px solid #d9dee7;
+  padding-top: 14px;
+  margin-top: 14px;
+}

@@ -10,8 +10,8 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from client import AgentRunClient
-from experiments import EXPERIMENTS, get_experiment, list_experiments
-from history_reader import get_run, list_runs
+from experiments import EXPERIMENTS, get_experiment, list_experiments as list_experiment_names
+from history_reader import get_run, list_experiments, list_runs
 from logger import JsonlLogger
 from runner import run_task
 
@@ -45,7 +45,7 @@ def option_tags(values, selected="") -> str:
 
 def experiment_options(selected="") -> str:
     tags = ['<option value="">custom objective</option>']
-    tags.extend(option_tags(list_experiments(), selected).splitlines())
+    tags.extend(option_tags(list_experiment_names(), selected).splitlines())
     return "\n".join(tags)
 
 
@@ -103,6 +103,31 @@ def latest_run_summary() -> str:
         f'<div><a href="/history/{esc(latest["run_id"])}">Open detail</a></div>'
         "</div>"
     )
+
+
+def render_attempt_blocks(attempts) -> str:
+    if not attempts:
+        return "<p>No attempt records found.</p>"
+    blocks = []
+    for attempt in attempts:
+        success = "unknown" if attempt["success"] is None else str(attempt["success"]).lower()
+        blocks.append(
+            '<section class="attempt-block">'
+            f"<h3>Attempt {esc(attempt['attempt'])}</h3>"
+            '<div class="result-grid">'
+            f"<div><span>success</span><strong>{esc(success)}</strong></div>"
+            f"<div><span>failure_category</span><strong>{esc(attempt['failure_category'])}</strong></div>"
+            f"<div><span>trace_id</span><strong>{esc(attempt['trace_id'])}</strong></div>"
+            "</div>"
+            "<h4>stdout</h4>"
+            f"<pre>{esc(attempt['stdout'])}</pre>"
+            "<h4>stderr</h4>"
+            f"<pre>{esc(attempt['stderr'])}</pre>"
+            "<h4>observation</h4>"
+            f"<pre>{esc(attempt['observation'])}</pre>"
+            "</section>"
+        )
+    return "\n".join(blocks)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -206,6 +231,24 @@ def history(request: Request):
     )
 
 
+@app.get("/experiments", response_class=HTMLResponse)
+def experiments_overview():
+    rows = []
+    for experiment in list_experiments(LOG_DIR):
+        rows.append(
+            f"<tr><td>{esc(experiment['name'])}</td>"
+            f"<td>{esc(experiment['run_count'])}</td>"
+            f"<td>{esc(experiment['success_count'])}</td>"
+            f"<td>{esc(experiment['failure_count'])}</td>"
+            f"<td>{esc(experiment['last_run_timestamp'])}</td>"
+            f'<td><a href="/history?experiment={esc(experiment["name"])}">history</a></td></tr>'
+        )
+    return render_template(
+        "experiments.html",
+        rows="\n".join(rows) or '<tr><td colspan="6">No experiment runs found.</td></tr>',
+    )
+
+
 @app.get("/history/{run_id}", response_class=HTMLResponse)
 def run_detail(run_id: str):
     run_item = get_run(LOG_DIR, run_id)
@@ -213,7 +256,6 @@ def run_detail(run_id: str):
         return HTMLResponse("Run not found", status_code=404)
 
     trace_ids = "\n".join(run_item["trace_ids"])
-    observations = "\n".join(str(item) for item in run_item["observations"])
     raw_json = json.dumps(run_item["raw_records"], indent=2, sort_keys=True)
     success = "unknown" if run_item["success"] is None else str(run_item["success"]).lower()
 
@@ -227,8 +269,6 @@ def run_detail(run_id: str):
         failure_category=esc(display_failure_category(run_item["success"], run_item["failure_category"])),
         attempts=esc(run_item["attempts"]),
         trace_ids=esc(trace_ids),
-        observations=esc(observations),
-        stdout=esc(run_item["stdout"]),
-        stderr=esc(run_item["stderr"]),
+        attempt_blocks=render_attempt_blocks(run_item["attempt_blocks"]),
         raw_json=esc(raw_json),
     )

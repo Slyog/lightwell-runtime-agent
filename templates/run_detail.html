@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Run $run_id</title>
+  <title>Run Detail</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
   <main class="shell">
     <header class="topbar">
       <h1>Run Detail</h1>
-      <nav><a href="/history">History</a><a href="/">New run</a></nav>
+      <nav><a href="/">Home</a><a href="/">New run</a><a href="/history">History</a><a href="/experiments">Experiments</a></nav>
     </header>
 
     <section class="panel result-grid">
@@ -33,15 +33,8 @@
     </section>
 
     <section class="panel">
-      <h2>Observations</h2>
-      <pre>$observations</pre>
-    </section>
-
-    <section class="panel">
-      <h2>stdout</h2>
-      <pre>$stdout</pre>
-      <h2>stderr</h2>
-      <pre>$stderr</pre>
+      <h2>Attempts</h2>
+      $attempt_blocks
     </section>
 
     <section class="panel">

@@ -47,13 +47,17 @@ def last_present(records: List[Dict[str, Any]], key: str) -> Any:
     return value
 
 
+def normalize_failure_category(success: bool | None, failure_category: Any) -> str:
+    return "none" if success is True else str(failure_category or "unknown")
+
+
 def summarize_run(path: Path) -> Dict[str, Any]:
     records = read_jsonl(path)
     final = next((record for record in reversed(records) if record.get("event") in {"observe", "failure"}), {})
     status = final.get("status")
     raw_failure_category = final.get("failure_category") or final.get("error_type") or "unknown"
     success = True if status == "completed" else False if final else None
-    failure_category = "none" if success else raw_failure_category
+    failure_category = normalize_failure_category(success, raw_failure_category)
     objective = first_present(records, "task")
     trace_ids = collect_trace_ids(records)
     timestamp = first_present(records, "timestamp")
@@ -73,6 +77,34 @@ def summarize_run(path: Path) -> Dict[str, Any]:
     }
 
 
+def build_attempts(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    attempts = []
+    for record in records:
+        if record.get("event") not in {"observe", "failure"}:
+            continue
+        status = record.get("status")
+        success = True if status == "completed" else False
+        failure_category = record.get("failure_category") or record.get("error_type")
+        trace_ids = record.get("trace_ids")
+        if isinstance(trace_ids, list):
+            trace_id = trace_ids[0] if trace_ids else record.get("trace_id")
+        else:
+            trace_id = record.get("trace_id")
+        observation = record.get("error") or record.get("stderr") or status or record.get("event", "")
+        attempts.append(
+            {
+                "attempt": record.get("attempt", len(attempts) + 1),
+                "success": success,
+                "failure_category": normalize_failure_category(success, failure_category),
+                "trace_id": trace_id or "",
+                "stdout": record.get("stdout", ""),
+                "stderr": record.get("stderr") or record.get("error") or "",
+                "observation": observation,
+            }
+        )
+    return attempts
+
+
 def build_run(path: Path) -> Dict[str, Any]:
     records = read_jsonl(path)
     summary = summarize_run(path)
@@ -86,6 +118,7 @@ def build_run(path: Path) -> Dict[str, Any]:
     return {
         **summary,
         "attempts": len(attempts),
+        "attempt_blocks": build_attempts(records),
         "trace_ids": collect_trace_ids(records),
         "observations": [
             record.get("error") or record.get("stderr") or record.get("status") or record.get("event", "")
@@ -113,3 +146,27 @@ def list_runs(log_dir: Path) -> List[Dict[str, Any]]:
         if path.is_file():
             runs.append(summarize_run(path))
     return sorted(runs, key=lambda item: (item.get("timestamp") or "", item["modified"]), reverse=True)
+
+
+def list_experiments(log_dir: Path) -> List[Dict[str, Any]]:
+    grouped: Dict[str, Dict[str, Any]] = {}
+    for run in list_runs(log_dir):
+        name = run["experiment"]
+        item = grouped.setdefault(
+            name,
+            {
+                "name": name,
+                "run_count": 0,
+                "success_count": 0,
+                "failure_count": 0,
+                "last_run_timestamp": "",
+            },
+        )
+        item["run_count"] += 1
+        if run["success"] is True:
+            item["success_count"] += 1
+        elif run["success"] is False:
+            item["failure_count"] += 1
+        if run["timestamp"] and run["timestamp"] > item["last_run_timestamp"]:
+            item["last_run_timestamp"] = run["timestamp"]
+    return sorted(grouped.values(), key=lambda item: item["last_run_timestamp"], reverse=True)
