@@ -199,7 +199,7 @@ def finalize(
     observations: List[str],
     experiment: Optional[str] = None,
 ) -> dict:
-    failure_category = None if success else classify_failure(final_stderr)
+    failure_category = "none" if success else classify_failure(final_stderr)
     is_infrastructure_failure = failure_category in INFRASTRUCTURE_FAILURES
     is_agent_failure = failure_category in AGENT_FAILURES
     output = {

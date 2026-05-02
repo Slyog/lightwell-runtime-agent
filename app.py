@@ -83,6 +83,28 @@ def status_options(selected: str) -> str:
     )
 
 
+def display_failure_category(success, failure_category) -> str:
+    return "none" if success is True else str(failure_category or "unknown")
+
+
+def latest_run_summary() -> str:
+    runs = list_runs(LOG_DIR)
+    if not runs:
+        return "<p>No runs recorded yet.</p>"
+    latest = runs[0]
+    success = "unknown" if latest["success"] is None else str(latest["success"]).lower()
+    return (
+        '<div class="latest-grid">'
+        f"<div><span>timestamp</span><strong>{esc(latest['timestamp'])}</strong></div>"
+        f"<div><span>success</span><strong>{esc(success)}</strong></div>"
+        f"<div><span>failure_category</span><strong>{esc(display_failure_category(latest['success'], latest['failure_category']))}</strong></div>"
+        f"<div><span>trace_count</span><strong>{esc(latest['trace_count'])}</strong></div>"
+        f"<div class=\"wide\"><span>objective</span><strong>{esc(latest['objective'])}</strong></div>"
+        f'<div><a href="/history/{esc(latest["run_id"])}">Open detail</a></div>'
+        "</div>"
+    )
+
+
 @app.get("/", response_class=HTMLResponse)
 def index():
     return render_template(
@@ -92,6 +114,7 @@ def index():
         objective="",
         max_attempts="1",
         base_url="http://127.0.0.1:8000",
+        latest_run=latest_run_summary(),
     )
 
 
@@ -140,7 +163,7 @@ def render_result(result: dict, mode: str, max_attempts: int, base_url: str) -> 
     return render_template(
         "result.html",
         success=esc(str(result.get("success")).lower()),
-        failure_category=esc(result.get("failure_category")),
+        failure_category=esc(display_failure_category(result.get("success"), result.get("failure_category"))),
         is_agent_failure=esc(str(result.get("is_agent_failure")).lower()),
         is_infrastructure_failure=esc(str(result.get("is_infrastructure_failure")).lower()),
         stdout=esc(result.get("final_stdout")),
@@ -169,7 +192,7 @@ def history(request: Request):
             f"<tr><td>{esc(run_item['timestamp'])}</td>"
             f"<td>{esc(run_item['objective'])}</td>"
             f"<td>{esc(success)}</td>"
-            f"<td>{esc(run_item['failure_category'])}</td>"
+            f"<td>{esc(display_failure_category(run_item['success'], run_item['failure_category']))}</td>"
             f"<td>{esc(run_item['trace_count'])}</td>"
             f"<td>{esc(run_item['experiment'] or '')}</td>"
             f'<td><a href="/history/{esc(run_item["run_id"])}">detail</a></td></tr>'
@@ -201,7 +224,7 @@ def run_detail(run_id: str):
         timestamp=esc(run_item["timestamp"]),
         experiment=esc(run_item["experiment"] or ""),
         success=esc(success),
-        failure_category=esc(run_item["failure_category"]),
+        failure_category=esc(display_failure_category(run_item["success"], run_item["failure_category"])),
         attempts=esc(run_item["attempts"]),
         trace_ids=esc(trace_ids),
         observations=esc(observations),

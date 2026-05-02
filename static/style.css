@@ -13,6 +13,11 @@ a {
   color: #0a5d8f;
 }
 
+.muted {
+  color: #5c6675;
+  margin-top: 4px;
+}
+
 .shell {
   width: min(1120px, calc(100% - 32px));
   margin: 24px auto;
@@ -86,23 +91,30 @@ button {
 
 .grid,
 .result-grid,
-.two {
+.two,
+.latest-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 12px;
 }
 
-.result-grid div {
+.result-grid div,
+.latest-grid div {
   border: 1px solid #d9dee7;
   border-radius: 4px;
   padding: 12px;
 }
 
-.result-grid span {
+.result-grid span,
+.latest-grid span {
   display: block;
   color: #5c6675;
   font-size: 12px;
   margin-bottom: 6px;
+}
+
+.latest-grid .wide {
+  grid-column: 1 / -1;
 }
 
 pre {

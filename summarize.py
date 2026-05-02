@@ -114,7 +114,7 @@ def summarize(path: Path) -> Dict[str, Any]:
         "total_events": len(events),
         "experiment": first_present(events, "experiment") or "none",
         "final_success": final_success,
-        "failure_category": failure_category or classify_failure(final_stderr, bool(final_event.get("timeout")), str(status or "")),
+        "failure_category": "none" if final_success is True else failure_category or classify_failure(final_stderr, bool(final_event.get("timeout")), str(status or "")),
         "is_agent_failure": final_event.get("is_agent_failure"),
         "is_infrastructure_failure": final_event.get("is_infrastructure_failure"),
         "trace_count": len(trace_ids),

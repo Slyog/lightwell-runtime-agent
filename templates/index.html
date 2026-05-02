@@ -9,9 +9,14 @@
 <body>
   <main class="shell">
     <header class="topbar">
-      <h1>Lightwell Playground</h1>
+      <h1>Lightwell Runtime Agent</h1>
       <nav><a href="/history">History</a></nav>
     </header>
+
+    <section class="panel">
+      <h2>New Run</h2>
+      <p class="muted">Send an objective to the external AI Execution Engine and inspect the runtime result.</p>
+    </section>
 
     <form action="/run" method="post" class="panel">
       <label>
@@ -41,6 +46,11 @@
 
       <button type="submit">Run</button>
     </form>
+
+    <section class="panel">
+      <h2>Latest Run</h2>
+      $latest_run
+    </section>
   </main>
 </body>
 </html>
