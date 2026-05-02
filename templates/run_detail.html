@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Run $run_id</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <h1>Run Detail</h1>
+      <nav><a href="/history">History</a><a href="/">New run</a></nav>
+    </header>
+
+    <section class="panel result-grid">
+      <div><span>run_id</span><strong>$run_id</strong></div>
+      <div><span>timestamp</span><strong>$timestamp</strong></div>
+      <div><span>experiment</span><strong>$experiment</strong></div>
+      <div><span>success</span><strong>$success</strong></div>
+      <div><span>failure_category</span><strong>$failure_category</strong></div>
+      <div><span>attempts</span><strong>$attempts</strong></div>
+    </section>
+
+    <section class="panel">
+      <h2>Objective</h2>
+      <pre>$objective</pre>
+    </section>
+
+    <section class="panel">
+      <h2>Trace IDs</h2>
+      <pre>$trace_ids</pre>
+    </section>
+
+    <section class="panel">
+      <h2>Observations</h2>
+      <pre>$observations</pre>
+    </section>
+
+    <section class="panel">
+      <h2>stdout</h2>
+      <pre>$stdout</pre>
+      <h2>stderr</h2>
+      <pre>$stderr</pre>
+    </section>
+
+    <section class="panel">
+      <h2>Raw JSON</h2>
+      <pre>$raw_json</pre>
+    </section>
+  </main>
+</body>
+</html>

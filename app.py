@@ -1,4 +1,5 @@
 import html
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 from string import Template
@@ -10,9 +11,9 @@ from fastapi.staticfiles import StaticFiles
 
 from client import AgentRunClient
 from experiments import EXPERIMENTS, get_experiment, list_experiments
+from history_reader import get_run, list_runs
 from logger import JsonlLogger
 from runner import run_task
-from summarize import summarize
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -59,10 +60,6 @@ def clamp_max_attempts(value: str) -> int:
     except (TypeError, ValueError):
         return 1
     return max(1, min(5, number))
-
-
-def jsonl_files():
-    return sorted(LOG_DIR.glob("*.jsonl"), key=lambda path: path.stat().st_mtime, reverse=True)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -141,25 +138,43 @@ def render_result(result: dict, mode: str, max_attempts: int, base_url: str) -> 
 @app.get("/history", response_class=HTMLResponse)
 def history():
     rows = []
-    for path in jsonl_files():
-        modified = datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+    for run_item in list_runs(LOG_DIR):
+        success = "unknown" if run_item["success"] is None else str(run_item["success"]).lower()
         rows.append(
-            f'<tr><td><a href="/history/{esc(path.name)}">{esc(path.name)}</a></td>'
-            f"<td>{path.stat().st_size}</td><td>{esc(modified)}</td></tr>"
+            f'<tr><td><a href="/history/{esc(run_item["run_id"])}">{esc(run_item["run_id"])}</a></td>'
+            f"<td>{esc(run_item['timestamp'])}</td>"
+            f"<td>{esc(run_item['experiment'] or '')}</td>"
+            f"<td>{esc(success)}</td>"
+            f"<td>{esc(run_item['failure_category'] or '')}</td>"
+            f"<td>{esc(run_item['trace_count'])}</td>"
+            f"<td>{esc(run_item['objective'])}</td></tr>"
         )
-    return render_template("history.html", title="History", rows="\n".join(rows) or '<tr><td colspan="3">No JSONL logs found.</td></tr>', summary="")
+    return render_template("history.html", title="History", rows="\n".join(rows) or '<tr><td colspan="7">No JSONL logs found.</td></tr>', summary="")
 
 
-@app.get("/history/{filename}", response_class=HTMLResponse)
-def history_summary(filename: str):
-    path = LOG_DIR / Path(filename).name
-    if path.suffix != ".jsonl" or not path.exists() or not path.is_file():
-        summary_html = "<p>Log file not found.</p>"
-    else:
-        data = summarize(path)
-        summary_html = "".join(f"<dt>{esc(key)}</dt><dd>{esc(value)}</dd>" for key, value in data.items())
+@app.get("/history/{run_id}", response_class=HTMLResponse)
+def run_detail(run_id: str):
+    run_item = get_run(LOG_DIR, run_id)
+    if run_item is None:
+        return HTMLResponse("Run not found", status_code=404)
 
-    rows = []
-    for path_item in jsonl_files():
-        rows.append(f'<tr><td><a href="/history/{esc(path_item.name)}">{esc(path_item.name)}</a></td><td>{path_item.stat().st_size}</td><td></td></tr>')
-    return render_template("history.html", title=f"History: {esc(filename)}", rows="\n".join(rows), summary=f"<dl>{summary_html}</dl>")
+    trace_ids = "\n".join(run_item["trace_ids"])
+    observations = "\n".join(str(item) for item in run_item["observations"])
+    raw_json = json.dumps(run_item["raw_records"], indent=2, sort_keys=True)
+    success = "unknown" if run_item["success"] is None else str(run_item["success"]).lower()
+
+    return render_template(
+        "run_detail.html",
+        run_id=esc(run_item["run_id"]),
+        objective=esc(run_item["objective"]),
+        timestamp=esc(run_item["timestamp"]),
+        experiment=esc(run_item["experiment"] or ""),
+        success=esc(success),
+        failure_category=esc(run_item["failure_category"] or ""),
+        attempts=esc(run_item["attempts"]),
+        trace_ids=esc(trace_ids),
+        observations=esc(observations),
+        stdout=esc(run_item["stdout"]),
+        stderr=esc(run_item["stderr"]),
+        raw_json=esc(raw_json),
+    )
