@@ -79,6 +79,11 @@ button {
   cursor: pointer;
 }
 
+.clear-link {
+  display: inline-block;
+  margin-left: 12px;
+}
+
 .grid,
 .result-grid,
 .two {

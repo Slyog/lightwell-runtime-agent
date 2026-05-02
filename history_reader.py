@@ -51,11 +51,14 @@ def summarize_run(path: Path) -> Dict[str, Any]:
     records = read_jsonl(path)
     final = next((record for record in reversed(records) if record.get("event") in {"observe", "failure"}), {})
     status = final.get("status")
-    failure_category = final.get("failure_category") or final.get("error_type") or "unknown"
+    raw_failure_category = final.get("failure_category") or final.get("error_type") or "unknown"
     success = True if status == "completed" else False if final else None
+    failure_category = "none" if success else raw_failure_category
     objective = first_present(records, "task")
     trace_ids = collect_trace_ids(records)
     timestamp = first_present(records, "timestamp")
+
+    experiment = first_present(records, "experiment") or "custom"
 
     return {
         "run_id": path.stem,
@@ -63,9 +66,9 @@ def summarize_run(path: Path) -> Dict[str, Any]:
         "timestamp": timestamp,
         "objective": objective,
         "success": success,
-        "failure_category": None if success else failure_category,
+        "failure_category": failure_category,
         "trace_count": len(trace_ids),
-        "experiment": first_present(records, "experiment") or None,
+        "experiment": experiment,
         "modified": path.stat().st_mtime,
     }
 

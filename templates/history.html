@@ -13,25 +13,36 @@
       <nav><a href="/">New run</a></nav>
     </header>
 
+    <form action="/history" method="get" class="panel">
+      <div class="grid">
+        <label>
+          Status
+          <select name="status">$status_options</select>
+        </label>
+        <label>
+          Experiment
+          <input name="experiment" value="$experiment_filter" placeholder="standard_library_fallback">
+        </label>
+      </div>
+      <button type="submit">Apply</button>
+      <a class="clear-link" href="/history">Clear</a>
+    </form>
+
     <section class="panel">
       <table>
         <thead>
           <tr>
-            <th>Run</th>
             <th>Timestamp</th>
-            <th>Experiment</th>
+            <th>Objective</th>
             <th>Success</th>
             <th>Failure</th>
             <th>Traces</th>
-            <th>Objective</th>
+            <th>Experiment</th>
+            <th>Detail</th>
           </tr>
         </thead>
         <tbody>$rows</tbody>
       </table>
-    </section>
-
-    <section class="panel summary">
-      $summary
     </section>
   </main>
 </body>

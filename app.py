@@ -62,6 +62,27 @@ def clamp_max_attempts(value: str) -> int:
     return max(1, min(5, number))
 
 
+def filter_runs(runs, status: str = "", experiment: str = ""):
+    filtered = []
+    for run_item in runs:
+        if status == "success" and run_item["success"] is not True:
+            continue
+        if status == "failure" and run_item["success"] is not False:
+            continue
+        if experiment and run_item.get("experiment") != experiment:
+            continue
+        filtered.append(run_item)
+    return filtered
+
+
+def status_options(selected: str) -> str:
+    labels = [("", "all"), ("success", "success"), ("failure", "failure")]
+    return "\n".join(
+        f'<option value="{esc(value)}"{" selected" if value == selected else ""}>{esc(label)}</option>'
+        for value, label in labels
+    )
+
+
 @app.get("/", response_class=HTMLResponse)
 def index():
     return render_template(
@@ -136,20 +157,30 @@ def render_result(result: dict, mode: str, max_attempts: int, base_url: str) -> 
 
 
 @app.get("/history", response_class=HTMLResponse)
-def history():
+def history(request: Request):
+    status_filter = request.query_params.get("status", "")
+    if status_filter not in {"", "success", "failure"}:
+        status_filter = ""
+    experiment_filter = request.query_params.get("experiment", "").strip()
     rows = []
-    for run_item in list_runs(LOG_DIR):
+    for run_item in filter_runs(list_runs(LOG_DIR), status_filter, experiment_filter):
         success = "unknown" if run_item["success"] is None else str(run_item["success"]).lower()
         rows.append(
-            f'<tr><td><a href="/history/{esc(run_item["run_id"])}">{esc(run_item["run_id"])}</a></td>'
-            f"<td>{esc(run_item['timestamp'])}</td>"
-            f"<td>{esc(run_item['experiment'] or '')}</td>"
+            f"<tr><td>{esc(run_item['timestamp'])}</td>"
+            f"<td>{esc(run_item['objective'])}</td>"
             f"<td>{esc(success)}</td>"
-            f"<td>{esc(run_item['failure_category'] or '')}</td>"
+            f"<td>{esc(run_item['failure_category'])}</td>"
             f"<td>{esc(run_item['trace_count'])}</td>"
-            f"<td>{esc(run_item['objective'])}</td></tr>"
+            f"<td>{esc(run_item['experiment'] or '')}</td>"
+            f'<td><a href="/history/{esc(run_item["run_id"])}">detail</a></td></tr>'
         )
-    return render_template("history.html", title="History", rows="\n".join(rows) or '<tr><td colspan="7">No JSONL logs found.</td></tr>', summary="")
+    return render_template(
+        "history.html",
+        title="History",
+        rows="\n".join(rows) or '<tr><td colspan="7">No runs match these filters.</td></tr>',
+        status_options=status_options(status_filter),
+        experiment_filter=esc(experiment_filter),
+    )
 
 
 @app.get("/history/{run_id}", response_class=HTMLResponse)
@@ -170,7 +201,7 @@ def run_detail(run_id: str):
         timestamp=esc(run_item["timestamp"]),
         experiment=esc(run_item["experiment"] or ""),
         success=esc(success),
-        failure_category=esc(run_item["failure_category"] or ""),
+        failure_category=esc(run_item["failure_category"]),
         attempts=esc(run_item["attempts"]),
         trace_ids=esc(trace_ids),
         observations=esc(observations),
