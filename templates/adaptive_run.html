@@ -32,7 +32,8 @@
     <form id="adaptive-form" class="panel">
       <label>
         Endpoint URL
-        <input id="endpoint-url" name="endpoint_url" type="url" placeholder="https://api.example.com/resource" required>
+        <input id="endpoint-url" name="endpoint_url" type="url" value="https://httpbin.org/status/400" placeholder="https://api.example.com/resource" required>
+        <span class="muted">For demo use, this can be any test endpoint. The system will generate code, execute it, observe the response, and repair if possible.</span>
       </label>
 
       <div class="grid">
@@ -229,7 +230,7 @@
     }
 
     tryExampleButton.addEventListener("click", () => {
-      jsonBodyInput.value = "Write Python code that calls an API incorrectly";
+      jsonBodyInput.value = "Debug a broken API request that returns 400 and explain the failure.";
       jsonBodyInput.focus();
     });
 
