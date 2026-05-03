@@ -1,5 +1,6 @@
 import html
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from string import Template
@@ -147,7 +148,11 @@ def index():
 
 @app.get("/adaptive-run", response_class=HTMLResponse)
 def adaptive_run():
-    return render_template("adaptive_run.html")
+    endpoint = os.environ.get(
+        "ADAPTIVE_EXECUTION_API_URL",
+        "http://localhost:8880/adaptive-execution/run",
+    )
+    return render_template("adaptive_run.html", adaptive_execution_api_url=json.dumps(endpoint))
 
 
 @app.post("/run", response_class=HTMLResponse)
