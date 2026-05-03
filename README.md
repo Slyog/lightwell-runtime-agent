@@ -1,103 +1,185 @@
-# AI that debugs broken code by executing it
+# AI Execution System – Tracewell Runtime (UI Layer)
 
-Lightwell is a local UI for adaptive code execution.
+Execution Trace Runtime is the UI and observability layer of a 3-part AI execution system.
 
-It sends a debugging objective to `adaptive-execution`, shows each attempt, and records the result.
+It visualizes how code is executed, how failures are detected, and how repair decisions are applied across multiple attempts.
 
-The key behavior is simple: code is generated, executed, observed, repaired, and retried.
+> The system does not guess correctness. It proves it through execution.
 
-Correctness comes from runtime output: `stdout`, `stderr`, `exit_code`, `error_type`, and the final attempt.
+---
 
-## Example
+## System Overview
+
+This repository is part of a 3-layer execution system:
+
+| Layer | Role |
+|---|---|
+| **AI-Execution-Engine** | Executes Python code in an isolated Docker runtime. Produces `stdout`, `stderr`, `exit_code` as ground truth. |
+| **adaptive-execution** | Interprets runtime failures. Maps failures to deterministic repair strategies. Retries until success. |
+| **Tracewell Runtime** *(this repo)* | Visualizes execution traces, API signals, and decision flow. |
+
+**Architecture:**
 
 ```text
-Attempt 1 -> error
-  POST /users returns 400
-  error_type = HTTPBadRequest
-  stderr = age must be an integer
-
-Attempt 2 -> fix
-  strategy = repair_request_body
-  generated code sends age as an integer
-
-Attempt 3 -> success
-  success = true
-  stdout = user created
+User / Agent
+→ Tracewell Runtime      (UI)
+→ adaptive-execution     (decision layer)
+→ AI-Execution-Engine    (runtime)
+→ real API
 ```
+
+---
+
+## What This Layer Does
+
+Tracewell Runtime provides:
+
+- Execution timeline (attempts)
+- API signals (auth, validation, network, success)
+- Decision trace (why a retry happened)
+- Full `stdout` / `stderr` visibility
+- Persistent run history (JSONL)
+
+It is not responsible for execution or decision-making — it only surfaces what actually happened.
+
+---
+
+## Core Behavior
+
+```text
+execute → observe → decision → execute → observe → decision → execute → observe
+```
+
+Each attempt is:
+
+1. Generated
+2. Executed in Docker
+3. Observed via real output
+4. Interpreted into signals
+5. Repaired deterministically
+
+**Example:**
+
+```text
+Attempt 1 → failure
+  POST /users returns 401
+  auth_failure_observed = true
+
+Attempt 2 → partial fix
+  Authorization header added
+  POST /users returns 400
+  validation_failure_observed = true
+
+Attempt 3 → success
+  Payload fixed (age as integer)
+  POST /users returns 200
+  success_observed = true
+```
+
+---
 
 ## Adaptive Retry Demo
 
-The adaptive retry demo starts from a broken API request and reaches a working request through deterministic runtime feedback.
+The adaptive retry demo starts from a broken API request and reaches a working request using runtime feedback.
 
-Event flow:
+**Sequence:**
 
-```text
-execute -> observe -> decision -> execute -> observe -> decision -> execute -> observe
+1. Attempt 1 executes without `Authorization`
+2. API returns `401`
+3. System observes `auth_failure_observed = true`
+4. Decision: add Authorization header
+5. Attempt 2 executes with auth but invalid payload
+6. API returns `400`
+7. System observes `validation_failure_observed = true`
+8. Decision: fix payload type
+9. Attempt 3 executes with valid request
+10. API returns `200`
+
+**Final signals:**
+
+```json
+{
+  "status_sequence": [401, 400, 200],
+  "final_success": true,
+  "failure_category": "none"
+}
 ```
 
-1. Attempt 1 executes a request without an `Authorization` header.
-2. The API returns `401`.
-3. The system observes `auth_failure_observed=true`.
-4. The decision step applies a deterministic rule: add the `Authorization` header.
-5. Attempt 2 executes with authorization, but the payload still sends `age` as a string.
-6. The API returns `400`.
-7. The system observes `validation_failure_observed=true`.
-8. The decision step applies a deterministic rule: fix the payload type.
-9. Attempt 3 executes with authorization and a valid integer `age`.
-10. The API returns `200`.
+> There is no LLM decision-making in this path.  
+> All retries are deterministic and based on observed runtime signals.
 
-There is no LLM decision-making in this retry path. The retry rules are deterministic, and the Docker runtime executes real Python code for each attempt. Lightwell shows both the API Signals and the Adaptive Event Chain in the run detail page, so the demo visibly proves the sequence from failed auth to fixed validation to final success.
+---
 
-## Why This Matters
+## Key Idea
 
-- Most tools guess from code or model output.
-- This executes the code and observes real failures.
-- Each repair attempt leaves evidence.
-- The final result is based on what ran, not what the model claimed.
+> **LLM is not the source of truth. Execution is the source of truth.**
+
+- Most tools infer correctness from code or model output
+- This system executes real code against real APIs
+- Failures are observed, not guessed
+- Every repair step is traceable
+- The final result is based on what actually ran
+
+---
 
 ## Stack
 
 - Python
 - FastAPI
-- HTML templates
-- CSS
-- Local JSONL history
+- HTML templates + CSS
+- JSONL history
 - `adaptive-execution` service
-- AI Execution Engine
+- AI-Execution-Engine (Docker runtime)
 
-## How To Run
+---
 
-Start the AI Execution Engine:
+## How To Run (Local)
+
+**1. Start AI-Execution-Engine:**
 
 ```powershell
-cd C:\Users\slyse\Documents\ExecutionEngine\AIExecutionEngine
-python -m uvicorn api:app --host 127.0.0.1 --port 8000
+cd C:\Users\slyse\Documents\AIEngine\AI-Execution-Engine
+python -m uvicorn app:app --host 127.0.0.1 --port 8000
 ```
 
-Start `adaptive-execution`:
+**2. Start adaptive-execution:**
 
 ```powershell
 cd C:\Users\slyse\Documents\adaptive-execution
 python -m uvicorn api:app --host 127.0.0.1 --port 8880
 ```
 
-Start Lightwell:
+**3. Start Tracewell Runtime:**
 
 ```powershell
 cd C:\Users\slyse\Documents\agentcoding
 python -m uvicorn app:app --host 127.0.0.1 --port 8080
 ```
 
-Open:
+**4. Open in browser:**
 
-```text
+```
 http://127.0.0.1:8080/adaptive-run
 ```
 
-If `adaptive-execution` runs somewhere else:
+---
+
+## Configuration
+
+If `adaptive-execution` runs on a different host, set this before starting the UI:
 
 ```powershell
 $env:ADAPTIVE_EXECUTION_API_URL="http://127.0.0.1:8880/adaptive-execution/run"
 ```
 
-Set that before starting Lightwell.
+---
+
+## Optional: Agent Integration
+
+This system can be exposed as a tool (e.g. for OpenClaw):
+
+```python
+adaptive_execution_run(endpoint_url, method, objective, allow_network, max_attempts)
+```
+
+Agents can invoke execution — but correctness still comes from runtime.
