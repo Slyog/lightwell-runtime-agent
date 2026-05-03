@@ -49,6 +49,12 @@ a {
   margin-bottom: 16px;
 }
 
+.hero-panel h2 {
+  margin: 0 0 6px;
+  font-size: 28px;
+  line-height: 1.2;
+}
+
 label {
   display: grid;
   gap: 6px;
@@ -198,9 +204,7 @@ dd {
 }
 
 .adaptive-attempt {
-  display: grid;
-  grid-template-columns: 36px 1fr;
-  gap: 12px;
+  display: block;
 }
 
 .attempt-marker {
@@ -229,6 +233,16 @@ dd {
   background: #ffffff;
 }
 
+.adaptive-attempt.success .attempt-body {
+  border-color: #b7d7c0;
+  background: #f6fbf7;
+}
+
+.adaptive-attempt.failure .attempt-body {
+  border-color: #e2b8b8;
+  background: #fff7f7;
+}
+
 .attempt-heading {
   display: flex;
   justify-content: space-between;
@@ -239,6 +253,7 @@ dd {
 
 .attempt-heading h3 {
   margin: 0;
+  font-size: 18px;
 }
 
 .attempt-heading strong {
@@ -251,6 +266,99 @@ dd {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 6px;
+}
+
+.attempt-summary {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 8px 14px;
+  margin: 0;
+}
+
+.attempt-summary dt {
+  color: #5c6675;
+  font-size: 13px;
+}
+
+.attempt-summary dd {
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.attempt-summary pre {
+  margin: 0;
+}
+
+.attempt-evidence {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.attempt-details {
+  border: 1px solid #d9dee7;
+  border-radius: 4px;
+  background: #ffffff;
+}
+
+.attempt-details summary {
+  cursor: pointer;
+  padding: 10px 12px;
+  color: #26313f;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.attempt-details pre {
+  margin: 0;
+  border-top: 1px solid #d9dee7;
+  border-radius: 0 0 4px 4px;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #b8c0cc;
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.status-pill.success {
+  border-color: #9ec9aa;
+  background: #eef8f1;
+  color: #1f6f43;
+}
+
+.status-pill.error {
+  border-color: #d9a0a0;
+  background: #fff1f1;
+  color: #8a1f1f;
+}
+
+.final-result {
+  border: 1px solid #d9dee7;
+  border-radius: 6px;
+  padding: 14px;
+  margin-top: 16px;
+}
+
+.final-result.success {
+  border-color: #b7d7c0;
+  background: #f6fbf7;
+}
+
+.final-result.failure {
+  border-color: #e2b8b8;
+  background: #fff7f7;
+}
+
+.final-result h3 {
+  margin: 0 0 12px;
 }
 
 .badge {
@@ -302,7 +410,7 @@ code {
     flex-wrap: wrap;
   }
 
-  .adaptive-attempt {
+  .attempt-summary {
     grid-template-columns: 1fr;
   }
 }

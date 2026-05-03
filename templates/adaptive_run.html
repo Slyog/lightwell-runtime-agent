@@ -13,10 +13,20 @@
       <nav><a href="/">Home</a><a href="/">New run</a><a href="/adaptive-run">Adaptive run</a><a href="/adaptive-runs/history">Adaptive history</a><a href="/adaptive-runs/insights">Insights</a><a href="/history">History</a><a href="/experiments">Experiments</a></nav>
     </header>
 
+    <section class="panel hero-panel">
+      <h2>Fix broken API requests step by step</h2>
+      <p class="muted">This tool executes code, observes real errors, and repairs them across multiple attempts.</p>
+    </section>
+
     <section class="panel">
-      <h2>Integration Debug Timeline</h2>
-      <p class="muted">Powered by adaptive execution repair attempts.</p>
-      <p class="muted">Lightwell executes the integration, observes the real runtime result, and shows each repair attempt.</p>
+      <h2>Example</h2>
+      <dl>
+        <dt>Input</dt>
+        <dd>"Write Python code that calls an API incorrectly"</dd>
+        <dt>Output</dt>
+        <dd>"System runs, fails, repairs, retries"</dd>
+      </dl>
+      <button id="try-example-button" type="button">Try Example</button>
     </section>
 
     <form id="adaptive-form" class="panel">
@@ -30,26 +40,29 @@
           Method
           <select id="method" name="method">
             <option value="GET">GET</option>
-            <option value="POST">POST</option>
+            <option value="POST" selected>POST</option>
           </select>
         </label>
       </div>
 
       <label>
-        JSON body
-        <textarea id="json-body" name="json_body" rows="7" placeholder='{"hello": "world"}'></textarea>
+        Debug objective
+        <textarea id="json-body" name="json_body" rows="7" placeholder="Describe what should be executed or debugged..."></textarea>
       </label>
 
       <button id="run-button" type="submit">Run</button>
     </form>
 
     <section id="status-panel" class="panel hidden" aria-live="polite"></section>
-    <section id="result-panel" class="panel hidden"></section>
+    <section id="result-panel" class="panel">
+      <p class="muted">No runs yet. Try the example above.</p>
+    </section>
   </main>
 
   <script>
     const endpoint = $adaptive_execution_api_url;
     const form = document.getElementById("adaptive-form");
+    const tryExampleButton = document.getElementById("try-example-button");
     const endpointUrlInput = document.getElementById("endpoint-url");
     const methodInput = document.getElementById("method");
     const jsonBodyInput = document.getElementById("json-body");
@@ -77,14 +90,25 @@
     }
 
     function renderMeta(result) {
+      const attempts = Array.isArray(result.attempts) ? result.attempts : [];
       return '<section class="result-grid">'
-        + '<div><span>success</span><strong>' + escapeHtml(result.success) + '</strong></div>'
-        + '<div><span>attempts</span><strong>' + escapeHtml(Array.isArray(result.attempts) ? result.attempts.length : 0) + '</strong></div>'
+        + '<div><span>result</span><strong>' + escapeHtml(resultSucceeded(result) ? "Success" : "Failure") + '</strong></div>'
+        + '<div><span>attempts</span><strong>' + escapeHtml(attempts.length) + '</strong></div>'
         + '</section>';
     }
 
     function attemptNumber(attempt, index) {
       return attempt.attempt_number ?? attempt.attempt ?? index + 1;
+    }
+
+    function resultSucceeded(result) {
+      if (typeof result.success === "boolean") {
+        return result.success;
+      }
+      if (typeof result.succeeded === "boolean") {
+        return result.succeeded;
+      }
+      return String(result.success || result.succeeded || "").toLowerCase() === "true";
     }
 
     function attemptSucceeded(attempt) {
@@ -94,47 +118,75 @@
       return Number(attempt.exit_code) === 0;
     }
 
-    function attemptLabel(attempt, index, total) {
-      const success = attemptSucceeded(attempt);
-      const errorType = String(attempt.error_type || "");
-      if (total > 1 && index > 0) {
-        return success ? "repaired handling" : "repair failed";
+    function getErrorSummary(attempt) {
+      if (attempt.error_type) return attempt.error_type;
+      if (attempt.stderr) return attempt.stderr.split("\n")[0];
+      return "No error";
+    }
+
+    function strategySummary(attempt) {
+      if (attempt.strategy) {
+        return "Strategy: " + attempt.strategy;
       }
-      if (errorType.startsWith("HTTP")) {
-        return "API response failure";
-      }
-      return success ? "success" : "failed";
+      return "Initial attempt";
+    }
+
+    function renderDetails(label, value, code) {
+      return '<details class="attempt-details">'
+        + '<summary>' + escapeHtml(label) + '</summary>'
+        + '<pre>' + (code ? '<code>' + escapeHtml(value) + '</code>' : escapeHtml(value)) + '</pre>'
+        + '</details>';
     }
 
     function renderAttempt(attempt, index, attempts) {
       const success = attemptSucceeded(attempt);
       const number = attemptNumber(attempt, index);
-      const label = attemptLabel(attempt, index, attempts.length);
-      const errorType = attempt.error_type || "none";
-      const strategy = attempt.strategy || "none";
+      const error = getErrorSummary(attempt);
+      const strategy = strategySummary(attempt);
 
       return '<article class="adaptive-attempt ' + (success ? "success" : "failure") + '">'
-        + '<div class="attempt-marker">' + escapeHtml(number) + '</div>'
         + '<div class="attempt-body">'
         + '<div class="attempt-heading">'
-        + '<h3>Attempt ' + escapeHtml(number) + ' (' + escapeHtml(label) + ')</h3>'
-        + '<div class="attempt-badges">'
-        + '<span class="badge badge-label">' + escapeHtml(label) + '</span>'
-        + '<span class="badge badge-error">' + escapeHtml(errorType) + '</span>'
-        + '<span class="badge badge-strategy">' + escapeHtml(strategy) + '</span>'
+        + '<h3>Attempt ' + escapeHtml(number) + '</h3>'
+        + '<span class="status-pill ' + (success ? "success" : "error") + '">' + escapeHtml(success ? "Success" : "Error") + '</span>'
         + '</div>'
-        + '</div>'
-        + '<h4>code</h4>'
-        + '<pre><code>' + escapeHtml(attempt.code) + '</code></pre>'
-        + '<div class="result-grid">'
-        + '<div><span>exit_code</span><strong>' + escapeHtml(attempt.exit_code) + '</strong></div>'
-        + '<div><span>error_type</span><strong><span class="badge badge-error">' + escapeHtml(errorType) + '</span></strong></div>'
-        + '<div><span>strategy</span><strong><span class="badge badge-strategy">' + escapeHtml(strategy) + '</span></strong></div>'
-        + '<div class="wide output-block"><span>stdout</span><pre>' + escapeHtml(attempt.stdout) + '</pre></div>'
-        + '<div class="wide output-block"><span>stderr</span><pre>' + escapeHtml(attempt.stderr) + '</pre></div>'
+        + '<dl class="attempt-summary">'
+        + '<dt>Error</dt><dd>' + escapeHtml(success ? "Success" : error) + '</dd>'
+        + '<dt>Strategy</dt><dd>' + escapeHtml(strategy) + '</dd>'
+        + '</dl>'
+        + '<div class="attempt-evidence">'
+        + renderDetails("Code", attempt.code || "", true)
+        + renderDetails("Stdout", attempt.stdout || "", false)
+        + renderDetails("Stderr", attempt.stderr || "", false)
         + '</div>'
         + '</div>'
         + '</article>';
+    }
+
+    function finalStdout(result, attempts) {
+      if (result.final_stdout) {
+        return result.final_stdout;
+      }
+      if (result.stdout) {
+        return result.stdout;
+      }
+      for (let index = attempts.length - 1; index >= 0; index -= 1) {
+        if (attempts[index] && attempts[index].stdout) {
+          return attempts[index].stdout;
+        }
+      }
+      return "";
+    }
+
+    function renderFinalResult(result, attempts) {
+      const success = resultSucceeded(result);
+      return '<section class="final-result ' + (success ? "success" : "failure") + '">'
+        + '<h3>Final Result</h3>'
+        + '<dl class="attempt-summary">'
+        + '<dt>Status</dt><dd>' + escapeHtml(success ? "Success" : "Failure") + '</dd>'
+        + '<dt>Final stdout</dt><dd><pre>' + escapeHtml(finalStdout(result, attempts)) + '</pre></dd>'
+        + '</dl>'
+        + '</section>';
     }
 
     function renderResult(result) {
@@ -143,15 +195,15 @@
         ? attempts.map(renderAttempt).join("")
         : '<p>No attempts returned.</p>';
       resultPanel.className = "panel";
-      resultPanel.innerHTML = '<h2>Result</h2>' + renderMeta(result) + '<div class="adaptive-timeline">' + attemptsHtml + '</div>';
+      resultPanel.innerHTML = '<h2>Debug run</h2>' + renderMeta(result) + '<div class="adaptive-timeline">' + attemptsHtml + '</div>' + renderFinalResult(result, attempts);
       resultPanel.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
     function buildObjective() {
-      return "Call this API endpoint using Python requests.\n"
+      return jsonBodyInput.value.trim() + "\n\n"
+        + "Call this API endpoint using Python requests.\n"
         + "URL: " + endpointUrlInput.value.trim() + "\n"
         + "Method: " + methodInput.value + "\n"
-        + "Body: " + jsonBodyInput.value.trim() + "\n"
         + "Print the full response and handle errors.";
     }
 
@@ -176,12 +228,17 @@
       }
     }
 
+    tryExampleButton.addEventListener("click", () => {
+      jsonBodyInput.value = "Write Python code that calls an API incorrectly";
+      jsonBodyInput.focus();
+    });
+
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       hideResults();
-      showStatus("Running adaptive execution...", "loading");
+      showStatus("Running attempts...", "loading");
       runButton.disabled = true;
-      runButton.textContent = "Running...";
+      runButton.textContent = "Running attempts...";
 
       const objective = buildObjective();
       const payload = {
