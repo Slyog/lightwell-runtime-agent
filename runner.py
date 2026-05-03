@@ -2,6 +2,7 @@ import argparse
 import json
 from typing import List, Optional
 
+from api_signals import extract_api_signals
 from client import AgentRunClient, AgentRunError, AgentRunResult
 from experiments import get_experiment, list_experiments
 from logger import JsonlLogger
@@ -142,7 +143,12 @@ def run_task(
             final_stdout = result.stdout
             final_stderr = result.stderr
             final_api_signals = result.raw.get("api_signals") if isinstance(result.raw, dict) else None
+            if not isinstance(final_api_signals, dict):
+                final_api_signals = extract_api_signals(result.stdout, result.stderr)
             failure_category = None if result.succeeded else classify_error(result)
+            if failure_category is None:
+                failure_category = final_api_signals["failure_category"]
+            is_infrastructure_failure = final_api_signals["is_infrastructure_failure"]
             log_event(
                 logger,
                 "observe",
@@ -158,7 +164,7 @@ def run_task(
                     "api_signals": final_api_signals,
                     "failure_category": failure_category,
                     "is_agent_failure": failure_category in AGENT_FAILURES,
-                    "is_infrastructure_failure": failure_category in INFRASTRUCTURE_FAILURES,
+                    "is_infrastructure_failure": is_infrastructure_failure,
                 },
                 experiment,
             )
