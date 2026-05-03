@@ -494,13 +494,13 @@ def render_api_signals(result: dict) -> str:
 
     final_success = signals.get("final_success", result.get("success"))
     rows = [
+        ("status_sequence", api_signal_value(signals, "status_sequence", "[]")),
         ("network_reachable", api_signal_value(signals, "network_reachable")),
         ("auth_failure_observed", api_signal_value(signals, "auth_failure_observed")),
         ("validation_failure_observed", api_signal_value(signals, "validation_failure_observed")),
         ("success_observed", api_signal_value(signals, "success_observed")),
-        ("status_sequence", api_signal_value(signals, "status_sequence", "[]")),
         ("final_success", api_signal_value({"final_success": final_success}, "final_success")),
-        ("failure_category", display_failure_category(result.get("success"), result.get("failure_category"))),
+        ("failure_category", api_signal_value(signals, "failure_category")),
     ]
     rows_html = "\n".join(
         f"<div><span>{esc(label)}</span><strong>{esc(value)}</strong></div>"
@@ -841,6 +841,7 @@ def run_detail(run_id: str):
         failure_category=esc(display_failure_category(run_item["success"], run_item["failure_category"])),
         attempts=esc(run_item["attempts"]),
         trace_ids=esc(trace_ids),
+        api_signals_section=render_api_signals(run_item),
         attempt_blocks=render_attempt_blocks(run_item["attempt_blocks"]),
         raw_json=esc(raw_json),
     )

@@ -58,6 +58,16 @@ def normalize_experiment_name(value: Any) -> str:
     return text
 
 
+def latest_api_signals(records: List[Dict[str, Any]]) -> Dict[str, Any] | None:
+    for record in reversed(records):
+        if record.get("event") != "observe":
+            continue
+        signals = record.get("api_signals")
+        if isinstance(signals, dict):
+            return signals
+    return None
+
+
 def summarize_run(path: Path) -> Dict[str, Any]:
     records = read_jsonl(path)
     final = next((record for record in reversed(records) if record.get("event") in {"observe", "failure"}), {})
@@ -78,6 +88,7 @@ def summarize_run(path: Path) -> Dict[str, Any]:
         "objective": objective,
         "success": success,
         "failure_category": failure_category,
+        "api_signals": latest_api_signals(records),
         "trace_count": len(trace_ids),
         "experiment": experiment,
         "modified": path.stat().st_mtime,
@@ -107,6 +118,7 @@ def build_attempts(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 "stdout": record.get("stdout", ""),
                 "stderr": record.get("stderr") or record.get("error") or "",
                 "observation": observation,
+                "api_signals": record.get("api_signals") if isinstance(record.get("api_signals"), dict) else None,
             }
         )
     return attempts
