@@ -1,198 +1,226 @@
 # Lightwell Runtime Agent
 
-A local agent workspace that sends coding objectives to an external AI Execution Engine, observes real runtime results, classifies failures, and stores execution traces.
+Lightwell is a local API Integration Debug Journal built on adaptive execution.
+
+It provides a focused UI for running API integration checks, observing real runtime output, tracking repair attempts, and saving the result as local JSONL history. Lightwell observes real execution results. The LLM proposes code; the runtime determines truth.
 
 ## What Lightwell Is
 
-Lightwell is the UI and CLI layer above the AI Execution Engine.
+Lightwell is the observation and journal layer for adaptive API debugging.
 
-- Sends objectives to the engine's `POST /agent-runs` endpoint.
-- Displays runtime results returned by the engine.
-- Logs runs as JSONL.
-- Supports run history, run inspection, predefined experiments, and experiment aggregation.
-- Shows failure classification so infrastructure failures are visible separately from agent/code failures.
+- It turns structured API inputs into an adaptive-execution objective.
+- It calls the adaptive-execution service and displays every attempt.
+- It records adaptive runs as append-only JSONL.
+- It provides history, filtering, detail pages, and Markdown exports.
+- It makes runtime failures visible as debugging evidence.
+
+Lightwell is designed for local debugging and documentation, not for hiding the repair process.
 
 ## What Lightwell Is Not
 
+- Not the adaptive-execution engine.
 - Not the AI Execution Engine.
 - Not a Docker runtime.
 - Not a chatbot.
 - Not a database-backed application.
-- Not a simulation of execution results.
+- Not a replacement for production monitoring.
+- Not a simulation of API results.
 
 ## Architecture
 
 ```text
-User/UI -> Lightwell Runtime Agent -> AI Execution Engine -> Docker Runtime
+User
+  -> Lightwell /adaptive-run
+  -> adaptive-execution API
+  -> LLM proposes Python code
+  -> AI Execution Engine runs code
+  -> runtime stdout/stderr/exit_code
+  -> adaptive-execution classifies and repairs
+  -> Lightwell displays and persists the timeline
 ```
 
-Lightwell sends:
+Lightwell does not decide correctness from model text. It records the result returned by adaptive execution, including code, stdout, stderr, exit code, error type, and repair strategy.
+
+The important rule is:
+
+```text
+The LLM proposes code; the runtime determines truth.
+```
+
+## Adaptive Run Flow
+
+The `/adaptive-run` page collects:
+
+- `endpoint_url`
+- `method`
+- optional `json_body`
+
+Lightwell builds the objective:
+
+```text
+Call this API endpoint using Python requests.
+URL: {endpoint_url}
+Method: {method}
+Body: {json_body}
+Print the full response and handle errors.
+```
+
+It sends this to:
+
+```text
+POST {ADAPTIVE_EXECUTION_API_URL}
+```
+
+with:
 
 ```json
 {
-  "objective": "task text",
-  "max_attempts": 1
+  "objective": "...",
+  "max_attempts": 3
 }
 ```
 
-to:
+Each attempt is shown in the Attempts Timeline with:
+
+- attempt number
+- status label
+- error_type badge
+- strategy badge
+- exit_code
+- generated code
+- stdout
+- stderr
+
+HTTP failures are shown as API response failures instead of generic Python crashes when adaptive-execution returns HTTP-specific error types.
+
+## History / Detail / Markdown Export
+
+Adaptive runs are saved locally in:
 
 ```text
-POST /agent-runs
+data/adaptive_runs.jsonl
 ```
 
-The AI Execution Engine generates code, executes it in Docker, and returns execution results such as `stdout`, `stderr`, status, timeout state, and `trace_ids`.
+Each entry stores:
 
-Lightwell does not decide correctness by itself. It records and displays the runtime response from the engine.
+- timestamp
+- run_id
+- endpoint_url
+- method
+- json_body
+- generated objective
+- success
+- attempts
+- final_error_type
+- final_strategy
 
-## JSONL Source Of Truth
+The history page is:
 
-JSONL logs are the persistent state for Lightwell.
+```text
+/adaptive-runs/history
+```
 
-- UI runs write logs named like `ui-<timestamp>-<experiment>.jsonl`.
-- CLI runs can write a JSONL path using `--log`.
-- History and experiment pages read JSONL directly.
-- Malformed JSONL lines are skipped.
-- Raw JSON remains available on run detail pages for debugging.
+It supports server-side filters:
 
-Derived views:
+- `q`
+- `method`
+- `status`
+- `error_type`
 
-- History
-- Run detail
-- Experiments
-- Experiment detail
+Each row links to a detail page:
 
-No database is used.
+```text
+/adaptive-runs/history/<run_id>
+```
 
-## Routes
+The detail page shows a compact summary, run metadata, and the full attempts timeline.
 
-- `/`
-  - Home workspace.
-  - Shows objective input, mode selection, experiment selection, run controls, and latest run summary.
+Markdown export is available at:
 
-- `/run`
-  - Form submit endpoint.
-  - Calls the existing runner/client logic and renders the run result.
+```text
+/adaptive-runs/history/<run_id>/markdown
+```
 
-- `/history`
-  - JSONL-backed run overview.
-  - Supports basic query filters for status and experiment.
+Markdown exports are evidence artifacts for debugging and documentation. They are copy-friendly reports containing the generated objective, summary fields, and every attempt with code/stdout/stderr.
 
-- `/adaptive-run`
-  - Browser UI for the adaptive execution endpoint.
-  - Calls `POST /adaptive-execution/run` directly with `objective` and `max_attempts`.
+## Local Run Commands
 
-- `/history/{run_id}`
-  - Run inspection page.
-  - Shows objective, metadata, trace IDs, attempts, stdout, stderr, observations, and raw JSON.
-
-- `/experiments`
-  - Read-only experiment overview.
-  - Groups historical runs by normalized experiment name.
-
-- `/experiments/{experiment_name}`
-  - Read-only experiment detail page.
-  - Shows counts and runs for one experiment.
-
-## How To Run
-
-Start the AI Execution Engine separately on port `8000`.
-
-Local Windows example:
+Start the AI Execution Engine on port `8000`:
 
 ```powershell
 cd C:\Users\slyse\Documents\ExecutionEngine\AIExecutionEngine
 python -m uvicorn api:app --host 127.0.0.1 --port 8000
 ```
 
-Codespaces engine example:
+Start adaptive-execution on its configured port:
 
-```bash
-python -m uvicorn api:app --host 0.0.0.0 --port 8000
+```powershell
+cd C:\Users\slyse\Documents\adaptive-execution
+python -m uvicorn api:app --host 127.0.0.1 --port 8880
 ```
 
-Start Lightwell on port `8080`.
-
-Local Windows example:
+Start Lightwell on port `8080`:
 
 ```powershell
 cd C:\Users\slyse\Documents\agentcoding
 python -m uvicorn app:app --host 127.0.0.1 --port 8080
 ```
 
-Codespaces Lightwell example:
-
-```bash
-python -m uvicorn app:app --host 0.0.0.0 --port 8080
-```
-
 Open:
 
 ```text
-http://127.0.0.1:8080
+http://127.0.0.1:8080/adaptive-run
 ```
 
-CLI examples:
+If adaptive-execution runs elsewhere, set:
 
 ```powershell
-python runner.py "Write Python code that prints hello" --mode single --base-url http://127.0.0.1:8000
-python runner.py --experiment missing_dependency --mode retry_heavy --base-url http://127.0.0.1:8000
-python summarize.py agent_runs.jsonl
+$env:ADAPTIVE_EXECUTION_API_URL="http://127.0.0.1:8880/adaptive-execution/run"
 ```
 
-## Experiments
+before starting Lightwell.
 
-Predefined experiments live in `experiments/registry.py`.
-
-- `missing_dependency`
-- `file_assumption`
-- `timeout`
-- `standard_library_fallback`
-- `syntax_simple`
-
-Experiments are read-only named objectives. Lightwell does not provide experiment editing or creation UI.
-
-## Failure Semantics
-
-Successful runs display:
+The older general run UI still exists:
 
 ```text
-failure_category = none
+/
+/history
+/experiments
 ```
 
-Failed runs preserve meaningful categories such as:
+## Example Debugging Scenario
 
-- `engine_unreachable`
-- `docker_unavailable`
-- `sandbox_start_failed`
-- `timeout`
-- `missing_dependency`
-- `syntax_error`
-- `runtime_error`
-- `unknown_error`
+Input:
 
-Infrastructure failures are not counted as agent/code failures.
+```text
+endpoint_url = https://httpbin.org/status/404
+method = GET
+json_body =
+```
 
-## Current Constraints
+Expected adaptive behavior:
 
-- No React.
-- No database.
-- JSONL only.
-- Minimal local UI.
-- No changes to the AI Execution Engine.
-- No background jobs, charts, or authentication.
+```text
+Attempt 1
+  Runtime output shows HTTP 404.
+  error_type = HTTPNotFound
+  strategy = validate_endpoint
 
-## Current Status
+Attempt 2
+  Repaired handling prints status_code and response.text safely.
+  The run is labeled as repaired handling.
+```
 
-- Execution through the external AI Execution Engine works.
-- JSONL logging works.
-- Run history works.
-- Run inspection works.
-- Experiment aggregation works.
-- Failure classification is visible in the CLI and UI.
+The point is not that a 404 becomes a successful API response. The point is that the failure no longer looks like an unknown crash. Lightwell shows the runtime evidence, the detected API failure, and the repair strategy.
 
 ## Current Limitations
 
-- Docker must be available for full sandbox execution.
-- If Docker is unavailable, Lightwell classifies it as an infrastructure failure.
-- Experiment and run detail pages are read-only.
+- Local JSONL storage only.
+- No database.
+- No authentication.
+- No background jobs.
+- No hosted multi-user mode.
+- No automatic cleanup or retention policy for `data/adaptive_runs.jsonl`.
+- Markdown export is read-only and generated from stored JSONL.
+- Full execution depends on adaptive-execution, the AI Execution Engine, and any required runtime services being available.
+- API authentication is not managed by Lightwell; auth requirements must be represented in the endpoint or generated code context.

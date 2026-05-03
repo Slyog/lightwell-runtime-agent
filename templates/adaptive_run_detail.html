@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Adaptive Run Detail</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <h1>Adaptive Run Detail</h1>
+      <nav><a href="/">Home</a><a href="/adaptive-run">Adaptive run</a><a href="/adaptive-runs/history">Adaptive history</a><a href="/history">History</a><a href="/experiments">Experiments</a></nav>
+    </header>
+
+    <section class="panel">
+      <h2>Run Summary</h2>
+      <p><a href="$markdown_url">Markdown export</a></p>
+      <div class="result-grid">
+        <div><span>total attempts</span><strong>$total_attempts</strong></div>
+        <div><span>first_error_type</span><strong>$first_error_type</strong></div>
+        <div><span>final_error_type</span><strong>$final_error_type</strong></div>
+        <div><span>final_strategy</span><strong>$final_strategy</strong></div>
+        <div><span>repaired</span><strong>$repaired</strong></div>
+        <div><span>final outcome</span><strong>$success</strong></div>
+        <div><span>method</span><strong>$method</strong></div>
+        <div class="wide"><span>endpoint_url</span><strong>$endpoint_url</strong></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Run Metadata</h2>
+      <div class="result-grid">
+        <div><span>run_id</span><strong>$run_id</strong></div>
+        <div><span>timestamp</span><strong>$timestamp</strong></div>
+        <div><span>method</span><strong>$method</strong></div>
+        <div><span>success</span><strong>$success</strong></div>
+        <div><span>final_error_type</span><strong>$final_error_type</strong></div>
+        <div><span>final_strategy</span><strong>$final_strategy</strong></div>
+        <div class="wide"><span>endpoint_url</span><strong>$endpoint_url</strong></div>
+        <div class="wide"><span>json_body</span><pre>$json_body</pre></div>
+        <div class="wide"><span>generated objective</span><pre>$objective</pre></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Attempts Timeline</h2>
+      <div class="adaptive-timeline">
+        $attempts
+      </div>
+    </section>
+  </main>
+</body>
+</html>

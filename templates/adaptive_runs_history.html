@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Adaptive Run History</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <h1>Adaptive Run History</h1>
+      <nav><a href="/">Home</a><a href="/adaptive-run">Adaptive run</a><a href="/history">History</a><a href="/experiments">Experiments</a></nav>
+    </header>
+
+    <section class="panel">
+      <h2>API Integration Runs</h2>
+      <p class="muted">Newest adaptive integration debug runs are shown first.</p>
+      <form class="filter-form" method="get" action="/adaptive-runs/history">
+        <label>
+          Endpoint search
+          <input name="q" type="search" value="$q" placeholder="https://api.example.com">
+        </label>
+        <div class="grid">
+          <label>
+            Method
+            <select name="method">
+              $method_options
+            </select>
+          </label>
+          <label>
+            Status
+            <select name="status">
+              $status_options
+            </select>
+          </label>
+          <label>
+            final_error_type
+            <select name="error_type">
+              $error_type_options
+            </select>
+          </label>
+        </div>
+        <button type="submit">Filter</button>
+        <a class="clear-link" href="/adaptive-runs/history">Clear</a>
+      </form>
+      <table>
+        <thead>
+          <tr>
+            <th>timestamp</th>
+            <th>request</th>
+            <th>result</th>
+            <th>attempts</th>
+            <th>final_error_type</th>
+            <th>final_strategy</th>
+            <th>detail</th>
+          </tr>
+        </thead>
+        <tbody>
+          $rows
+        </tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

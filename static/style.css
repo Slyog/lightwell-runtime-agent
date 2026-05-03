@@ -233,7 +233,7 @@ dd {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  align-items: baseline;
+  align-items: flex-start;
   margin-bottom: 12px;
 }
 
@@ -244,6 +244,48 @@ dd {
 .attempt-heading strong {
   font-family: Consolas, "Courier New", monospace;
   font-size: 13px;
+}
+
+.attempt-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.badge {
+  display: inline-block;
+  border: 1px solid #b8c0cc;
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: #f5f6f8;
+  color: #15171a;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.badge-error {
+  border-color: #c56a6a;
+  background: #fff5f5;
+  color: #8a1f1f;
+}
+
+.badge-strategy {
+  border-color: #8aa6c8;
+  background: #f3f8ff;
+  color: #1e4f7a;
+}
+
+.badge-label {
+  border-color: #9eb5a7;
+  background: #f3faf5;
+  color: #1f6f43;
+}
+
+.output-block pre {
+  margin-bottom: 0;
 }
 
 code {

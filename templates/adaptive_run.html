@@ -10,12 +10,13 @@
   <main class="shell">
     <header class="topbar">
       <h1>API Integration Debug Tool</h1>
-      <nav><a href="/">Home</a><a href="/">New run</a><a href="/adaptive-run">Adaptive run</a><a href="/history">History</a><a href="/experiments">Experiments</a></nav>
+      <nav><a href="/">Home</a><a href="/">New run</a><a href="/adaptive-run">Adaptive run</a><a href="/adaptive-runs/history">Adaptive history</a><a href="/history">History</a><a href="/experiments">Experiments</a></nav>
     </header>
 
     <section class="panel">
       <h2>Integration Debug Timeline</h2>
       <p class="muted">Powered by adaptive execution repair attempts.</p>
+      <p class="muted">Lightwell executes the integration, observes the real runtime result, and shows each repair attempt.</p>
     </section>
 
     <form id="adaptive-form" class="panel">
@@ -95,8 +96,12 @@
 
     function attemptLabel(attempt, index, total) {
       const success = attemptSucceeded(attempt);
+      const errorType = String(attempt.error_type || "");
       if (total > 1 && index > 0) {
-        return success ? "repaired" : "repair failed";
+        return success ? "repaired handling" : "repair failed";
+      }
+      if (errorType.startsWith("HTTP")) {
+        return "API response failure";
       }
       return success ? "success" : "failed";
     }
@@ -105,19 +110,28 @@
       const success = attemptSucceeded(attempt);
       const number = attemptNumber(attempt, index);
       const label = attemptLabel(attempt, index, attempts.length);
+      const errorType = attempt.error_type || "none";
+      const strategy = attempt.strategy || "none";
 
       return '<article class="adaptive-attempt ' + (success ? "success" : "failure") + '">'
         + '<div class="attempt-marker">' + escapeHtml(number) + '</div>'
         + '<div class="attempt-body">'
-        + '<div class="attempt-heading"><h3>Attempt ' + escapeHtml(number) + ' (' + escapeHtml(label) + ')</h3><strong>' + escapeHtml(label) + '</strong></div>'
+        + '<div class="attempt-heading">'
+        + '<h3>Attempt ' + escapeHtml(number) + ' (' + escapeHtml(label) + ')</h3>'
+        + '<div class="attempt-badges">'
+        + '<span class="badge badge-label">' + escapeHtml(label) + '</span>'
+        + '<span class="badge badge-error">' + escapeHtml(errorType) + '</span>'
+        + '<span class="badge badge-strategy">' + escapeHtml(strategy) + '</span>'
+        + '</div>'
+        + '</div>'
         + '<h4>code</h4>'
         + '<pre><code>' + escapeHtml(attempt.code) + '</code></pre>'
         + '<div class="result-grid">'
-        + '<div class="wide"><span>stdout</span><pre>' + escapeHtml(attempt.stdout) + '</pre></div>'
-        + '<div class="wide"><span>stderr</span><pre>' + escapeHtml(attempt.stderr) + '</pre></div>'
         + '<div><span>exit_code</span><strong>' + escapeHtml(attempt.exit_code) + '</strong></div>'
-        + '<div><span>error_type</span><strong>' + escapeHtml(attempt.error_type || "none") + '</strong></div>'
-        + '<div><span>strategy</span><strong>' + escapeHtml(attempt.strategy || "none") + '</strong></div>'
+        + '<div><span>error_type</span><strong><span class="badge badge-error">' + escapeHtml(errorType) + '</span></strong></div>'
+        + '<div><span>strategy</span><strong><span class="badge badge-strategy">' + escapeHtml(strategy) + '</span></strong></div>'
+        + '<div class="wide output-block"><span>stdout</span><pre>' + escapeHtml(attempt.stdout) + '</pre></div>'
+        + '<div class="wide output-block"><span>stderr</span><pre>' + escapeHtml(attempt.stderr) + '</pre></div>'
         + '</div>'
         + '</div>'
         + '</article>';
@@ -141,6 +155,27 @@
         + "Print the full response and handle errors.";
     }
 
+    async function saveHistory(objective, result) {
+      try {
+        const response = await fetch("/adaptive-runs/history", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            endpoint_url: endpointUrlInput.value.trim(),
+            method: methodInput.value,
+            json_body: jsonBodyInput.value.trim(),
+            objective,
+            result
+          })
+        });
+        if (!response.ok) {
+          console.warn("Adaptive run history was not saved.");
+        }
+      } catch (error) {
+        console.warn("Adaptive run history was not saved.", error);
+      }
+    }
+
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       hideResults();
@@ -148,8 +183,9 @@
       runButton.disabled = true;
       runButton.textContent = "Running...";
 
+      const objective = buildObjective();
       const payload = {
-        objective: buildObjective(),
+        objective,
         max_attempts: 3
       };
 
@@ -167,6 +203,7 @@
 
         const result = await response.json();
         showStatus("Run complete.", "success");
+        await saveHistory(objective, result);
         renderResult(result);
       } catch (error) {
         showStatus("Request failed: " + error.message, "error");
