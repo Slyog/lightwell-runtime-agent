@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 import uuid
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from string import Template
@@ -331,6 +332,123 @@ def render_adaptive_run_markdown(run_item: dict, run_id: str) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+def percent(part: int, total: int) -> str:
+    if total <= 0:
+        return "0.0%"
+    return f"{(part / total) * 100:.1f}%"
+
+
+def table_rows(rows: list[tuple]) -> str:
+    if not rows:
+        return '<tr><td colspan="4">No data.</td></tr>'
+    return "\n".join("<tr>" + "".join(f"<td>{esc(cell)}</td>" for cell in row) + "</tr>" for row in rows)
+
+
+def adaptive_run_error_type(run_item: dict) -> str:
+    attempts = run_item.get("attempts") if isinstance(run_item.get("attempts"), list) else []
+    return str(run_item.get("final_error_type") or latest_attempt_value(attempts, "error_type") or "none")
+
+
+def adaptive_run_strategy(run_item: dict) -> str:
+    attempts = run_item.get("attempts") if isinstance(run_item.get("attempts"), list) else []
+    return str(run_item.get("final_strategy") or latest_attempt_value(attempts, "strategy") or "none")
+
+
+def adaptive_run_attempt_count(run_item: dict) -> int:
+    attempts = run_item.get("attempts")
+    return len(attempts) if isinstance(attempts, list) else 0
+
+
+def attempt_strategy(attempt: dict) -> str:
+    return str(attempt.get("strategy") or "none")
+
+
+def build_adaptive_insights(runs: list[dict]) -> dict:
+    total_runs = len(runs)
+    success_count = sum(1 for run in runs if run.get("success") is True)
+    attempt_total = sum(adaptive_run_attempt_count(run) for run in runs)
+
+    error_counts = Counter()
+    strategy_counts = Counter()
+    strategy_effectiveness = {}
+    error_success = {}
+    failing_endpoints = Counter()
+
+    for run in runs:
+        attempts = run.get("attempts") if isinstance(run.get("attempts"), list) else []
+        attempt_count = len(attempts)
+        error_type = adaptive_run_error_type(run)
+        strategy = adaptive_run_strategy(run)
+        success = run.get("success") is True
+        endpoint_url = str(run.get("endpoint_url") or "unknown")
+
+        if error_type != "none":
+            error_counts[error_type] += 1
+            bucket = error_success.setdefault(error_type, {"total": 0, "success": 0})
+            bucket["total"] += 1
+            if success:
+                bucket["success"] += 1
+
+        if strategy != "none":
+            strategy_counts[strategy] += 1
+
+        for attempt in attempts:
+            if not isinstance(attempt, dict):
+                continue
+            used_strategy = attempt_strategy(attempt)
+            if used_strategy == "none":
+                continue
+            stats = strategy_effectiveness.setdefault(
+                used_strategy,
+                {"usage": 0, "final_success": 0, "attempt_total": 0},
+            )
+            stats["usage"] += 1
+            stats["attempt_total"] += attempt_count
+            if success:
+                stats["final_success"] += 1
+
+        if not success:
+            failing_endpoints[endpoint_url] += 1
+
+    success_rows = [
+        ("total runs", total_runs),
+        ("successful runs", success_count),
+        ("failed runs", total_runs - success_count),
+        ("success rate", percent(success_count, total_runs)),
+        ("average attempts per run", f"{attempt_total / total_runs:.2f}" if total_runs else "0.00"),
+    ]
+
+    error_rows = [(error_type, count) for error_type, count in error_counts.most_common()]
+    strategy_rows = [(strategy, count) for strategy, count in strategy_counts.most_common()]
+    strategy_effectiveness_rows = [
+        (
+            strategy,
+            values["usage"],
+            values["final_success"],
+            percent(values["final_success"], values["usage"]),
+            f"{values['attempt_total'] / values['usage']:.2f}" if values["usage"] else "0.00",
+        )
+        for strategy, values in sorted(
+            strategy_effectiveness.items(),
+            key=lambda item: (-item[1]["final_success"], -item[1]["usage"], item[0]),
+        )
+    ]
+    error_success_rows = [
+        (error_type, values["success"], values["total"], percent(values["success"], values["total"]))
+        for error_type, values in sorted(error_success.items())
+    ]
+    endpoint_rows = [(endpoint_url, count) for endpoint_url, count in failing_endpoints.most_common()]
+
+    return {
+        "success_rows": table_rows(success_rows),
+        "error_rows": table_rows(error_rows),
+        "strategy_rows": table_rows(strategy_rows),
+        "strategy_effectiveness_rows": table_rows(strategy_effectiveness_rows),
+        "error_success_rows": table_rows(error_success_rows),
+        "endpoint_rows": table_rows(endpoint_rows),
+    }
+
+
 def filter_runs(runs, status: str = "", experiment: str = ""):
     filtered = []
     for run_item in runs:
@@ -506,6 +624,20 @@ def adaptive_run_markdown(run_id: str):
     return PlainTextResponse(
         render_adaptive_run_markdown(run_item, view_run_id),
         media_type="text/markdown; charset=utf-8",
+    )
+
+
+@app.get("/adaptive-runs/insights", response_class=HTMLResponse)
+def adaptive_run_insights():
+    insights = build_adaptive_insights(read_adaptive_run_history())
+    return render_template(
+        "adaptive_run_insights.html",
+        success_rows=insights["success_rows"],
+        error_rows=insights["error_rows"],
+        strategy_rows=insights["strategy_rows"],
+        strategy_effectiveness_rows=insights["strategy_effectiveness_rows"],
+        error_success_rows=insights["error_success_rows"],
+        endpoint_rows=insights["endpoint_rows"],
     )
 
 

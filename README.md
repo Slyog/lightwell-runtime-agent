@@ -4,6 +4,12 @@ Lightwell is a local API Integration Debug Journal built on adaptive execution.
 
 It provides a focused UI for running API integration checks, observing real runtime output, tracking repair attempts, and saving the result as local JSONL history. Lightwell observes real execution results. The LLM proposes code; the runtime determines truth.
 
+## Why This Matters
+
+Lightwell does not trust AI output blindly.
+
+It treats runtime execution as the source of truth and turns each integration attempt into observable evidence.
+
 ## What Lightwell Is
 
 Lightwell is the observation and journal layer for adaptive API debugging.
@@ -142,6 +148,15 @@ Markdown export is available at:
 ```
 
 Markdown exports are evidence artifacts for debugging and documentation. They are copy-friendly reports containing the generated objective, summary fields, and every attempt with code/stdout/stderr.
+
+## Screenshots
+
+- Adaptive Run form
+- Attempts Timeline
+- Run History
+- Run Detail
+- Markdown Export
+- Insights / Strategy Effectiveness
 
 ## Local Run Commands
 

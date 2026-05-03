@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Adaptive Run Insights</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <h1>Adaptive Run Insights</h1>
+      <nav><a href="/">Home</a><a href="/adaptive-run">Adaptive run</a><a href="/adaptive-runs/history">Adaptive history</a><a href="/history">History</a><a href="/experiments">Experiments</a></nav>
+    </header>
+
+    <section class="panel">
+      <h2>Overall</h2>
+      <table>
+        <tbody>
+          $success_rows
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2>Most Common error_types</h2>
+      <table>
+        <thead><tr><th>error_type</th><th>runs</th></tr></thead>
+        <tbody>
+          $error_rows
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2>Most Used Strategies</h2>
+      <table>
+        <thead><tr><th>strategy</th><th>runs</th></tr></thead>
+        <tbody>
+          $strategy_rows
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2>Strategy Effectiveness</h2>
+      <table>
+        <thead><tr><th>strategy</th><th>usage count</th><th>final successes</th><th>success rate</th><th>avg attempts</th></tr></thead>
+        <tbody>
+          $strategy_effectiveness_rows
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2>Success Rate Per error_type</h2>
+      <table>
+        <thead><tr><th>error_type</th><th>successes</th><th>runs</th><th>success rate</th></tr></thead>
+        <tbody>
+          $error_success_rows
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2>Top Failing Endpoints</h2>
+      <table>
+        <thead><tr><th>endpoint_url</th><th>failures</th></tr></thead>
+        <tbody>
+          $endpoint_rows
+        </tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>
