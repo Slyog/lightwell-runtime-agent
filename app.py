@@ -27,6 +27,7 @@ STATIC_DIR = BASE_DIR / "static"
 LOG_DIR = BASE_DIR
 DATA_DIR = BASE_DIR / "data"
 ADAPTIVE_RUN_HISTORY_PATH = DATA_DIR / "adaptive_runs.jsonl"
+DEFAULT_ADAPTIVE_EXECUTION_BASE_URL = "https://stunning-space-happiness-69j455w46v4247p7-8880.app.github.dev"
 
 app = FastAPI(title="Lightwell Playground")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -36,6 +37,13 @@ def render_template(name: str, **context) -> HTMLResponse:
     template = Template((TEMPLATE_DIR / name).read_text(encoding="utf-8"))
     escaped = {key: str(value) for key, value in context.items()}
     return HTMLResponse(template.safe_substitute(escaped))
+
+
+def adaptive_execution_endpoint(value: str | None = None) -> str:
+    base = (value or DEFAULT_ADAPTIVE_EXECUTION_BASE_URL).strip().rstrip("/")
+    if base.endswith("/adaptive-execution/run"):
+        return base
+    return f"{base}/adaptive-execution/run"
 
 
 def esc(value) -> str:
@@ -674,10 +682,7 @@ def index():
 
 @app.get("/adaptive-run", response_class=HTMLResponse)
 def adaptive_run():
-    endpoint = os.environ.get(
-        "ADAPTIVE_EXECUTION_API_URL",
-        "http://localhost:8880/adaptive-execution/run",
-    )
+    endpoint = adaptive_execution_endpoint(os.environ.get("ADAPTIVE_EXECUTION_API_URL"))
     return render_template("adaptive_run.html", adaptive_execution_api_url=json.dumps(endpoint))
 
 
