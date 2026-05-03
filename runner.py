@@ -155,6 +155,7 @@ def run_task(
                     "timeout": result.timeout,
                     "stdout": result.stdout,
                     "stderr": result.stderr,
+                    "api_signals": final_api_signals,
                     "failure_category": failure_category,
                     "is_agent_failure": failure_category in AGENT_FAILURES,
                     "is_infrastructure_failure": failure_category in INFRASTRUCTURE_FAILURES,
