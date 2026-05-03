@@ -145,6 +145,11 @@ def index():
     )
 
 
+@app.get("/adaptive-run", response_class=HTMLResponse)
+def adaptive_run():
+    return render_template("adaptive_run.html")
+
+
 @app.post("/run", response_class=HTMLResponse)
 async def run(request: Request):
     form = parse_form(await request.body())

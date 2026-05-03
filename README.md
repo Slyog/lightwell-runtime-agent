@@ -78,6 +78,10 @@ No database is used.
   - JSONL-backed run overview.
   - Supports basic query filters for status and experiment.
 
+- `/adaptive-run`
+  - Browser UI for the adaptive execution endpoint.
+  - Calls `POST /adaptive-execution/run` directly with `objective` and `max_attempts`.
+
 - `/history/{run_id}`
   - Run inspection page.
   - Shows objective, metadata, trace IDs, attempts, stdout, stderr, observations, and raw JSON.

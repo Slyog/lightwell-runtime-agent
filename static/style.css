@@ -84,6 +84,15 @@ button {
   cursor: pointer;
 }
 
+button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.hidden {
+  display: none;
+}
+
 .clear-link {
   display: inline-block;
   margin-left: 12px;
@@ -114,6 +123,10 @@ button {
 }
 
 .latest-grid .wide {
+  grid-column: 1 / -1;
+}
+
+.result-grid .wide {
   grid-column: 1 / -1;
 }
 
@@ -159,4 +172,95 @@ dd {
   border-top: 1px solid #d9dee7;
   padding-top: 14px;
   margin-top: 14px;
+}
+
+.status-panel {
+  font-family: Consolas, "Courier New", monospace;
+}
+
+.status-panel.loading {
+  border-color: #b8c0cc;
+}
+
+.status-panel.success {
+  border-color: #6fa981;
+}
+
+.status-panel.error {
+  border-color: #c56a6a;
+  color: #8a1f1f;
+}
+
+.adaptive-timeline {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.adaptive-attempt {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 12px;
+}
+
+.attempt-marker {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #5c6675;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.adaptive-attempt.success .attempt-marker {
+  background: #1f6f43;
+}
+
+.adaptive-attempt.failure .attempt-marker {
+  background: #9b2c2c;
+}
+
+.attempt-body {
+  border: 1px solid #d9dee7;
+  border-radius: 6px;
+  padding: 14px;
+  background: #ffffff;
+}
+
+.attempt-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+  margin-bottom: 12px;
+}
+
+.attempt-heading h3 {
+  margin: 0;
+}
+
+.attempt-heading strong {
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 13px;
+}
+
+code {
+  font-family: Consolas, "Courier New", monospace;
+}
+
+@media (max-width: 700px) {
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .topbar nav {
+    flex-wrap: wrap;
+  }
+
+  .adaptive-attempt {
+    grid-template-columns: 1fr;
+  }
 }
