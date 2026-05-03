@@ -102,6 +102,7 @@ def run_task(
     logger: JsonlLogger,
     experiment: Optional[str] = None,
     max_attempts_override: Optional[int] = None,
+    allow_network: bool = False,
 ) -> dict:
     steps = variation_tasks(task) if mode == "variation" else plan_steps(task)
     max_attempts = MAX_ATTEMPTS if mode == "retry_heavy" else len(steps)
@@ -124,14 +125,14 @@ def run_task(
 
             try:
                 engine_max_attempts = max_attempts_override if max_attempts_override is not None else (5 if mode == "retry_heavy" else 1)
-                result = client.run(current_task, max_attempts=engine_max_attempts)
+                result = client.run(current_task, max_attempts=engine_max_attempts, allow_network=allow_network)
             except AgentRunError as exc:
                 error_type = classify_error(None, exc)
                 error_types.append(error_type or "unknown_error")
                 observations.append(f"Attempt {attempts} failed before sandbox result: {exc}.")
                 log_event(logger, "failure", {"attempt": attempts, "error_type": error_type, "error": str(exc)}, experiment)
                 if error_type in INFRASTRUCTURE_FAILURES or mode != "retry_heavy" or local_attempt == step_attempts:
-                    return finalize(task, steps, attempts, False, trace_ids, final_stdout, str(exc), error_types, observations, experiment)
+                    return finalize(task, steps, attempts, False, trace_ids, final_stdout, str(exc), error_types, observations, experiment, allow_network)
                 current_task = adapt_task(current_task, None, error_type, attempts)
                 observations.append(f"Changed strategy after {error_type}.")
                 continue
@@ -164,7 +165,7 @@ def run_task(
                 if mode == "variation":
                     continue
                 if step_index == len(steps):
-                    return finalize(task, steps, attempts, True, trace_ids, final_stdout, final_stderr, error_types, observations, experiment)
+                    return finalize(task, steps, attempts, True, trace_ids, final_stdout, final_stderr, error_types, observations, experiment, allow_network)
                 break
 
             error_type = classify_error(result)
@@ -173,18 +174,18 @@ def run_task(
                 f"Attempt {attempts} failed with {error_type}; exit_code={result.exit_code}, timeout={result.timeout}."
             )
             if error_type in INFRASTRUCTURE_FAILURES:
-                return finalize(task, steps, attempts, False, trace_ids, final_stdout, final_stderr, error_types, observations, experiment)
+                return finalize(task, steps, attempts, False, trace_ids, final_stdout, final_stderr, error_types, observations, experiment, allow_network)
             if mode == "variation":
                 continue
             if mode != "retry_heavy" or local_attempt == step_attempts:
-                return finalize(task, steps, attempts, False, trace_ids, final_stdout, final_stderr, error_types, observations, experiment)
+                return finalize(task, steps, attempts, False, trace_ids, final_stdout, final_stderr, error_types, observations, experiment, allow_network)
             current_task = adapt_task(current_task, result, error_type, attempts)
             observations.append(f"Changed strategy after {error_type}.")
 
     success = bool(trace_ids) and not final_stderr and (not error_types or mode == "variation")
     if mode == "variation":
         success = bool(trace_ids) and any("succeeded" in item for item in observations)
-    return finalize(task, steps, attempts, success, trace_ids, final_stdout, final_stderr, error_types, observations, experiment)
+    return finalize(task, steps, attempts, success, trace_ids, final_stdout, final_stderr, error_types, observations, experiment, allow_network)
 
 
 def finalize(
@@ -198,6 +199,7 @@ def finalize(
     error_types: List[str],
     observations: List[str],
     experiment: Optional[str] = None,
+    allow_network: bool = False,
 ) -> dict:
     failure_category = "none" if success else classify_failure(final_stderr)
     is_infrastructure_failure = failure_category in INFRASTRUCTURE_FAILURES
@@ -215,6 +217,7 @@ def finalize(
         "final_stderr": final_stderr,
         "error_types": error_types,
         "observations": observations,
+        "allow_network": allow_network,
     }
     if experiment:
         output["experiment"] = experiment

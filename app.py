@@ -95,6 +95,10 @@ def truthy_result(value) -> bool:
     return value is True or str(value).lower() == "true"
 
 
+def truthy_form_value(value: str) -> bool:
+    return str(value or "").lower() in {"1", "true", "yes", "on"}
+
+
 def append_adaptive_run_history(entry: dict) -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     with ADAPTIVE_RUN_HISTORY_PATH.open("a", encoding="utf-8") as history_file:
@@ -649,6 +653,7 @@ async def run(request: Request):
     objective = form.get("objective", "").strip()
     max_attempts = clamp_max_attempts(form.get("max_attempts", "1"))
     base_url = form.get("base_url", "").strip() or "http://127.0.0.1:8000"
+    allow_network = truthy_form_value(form.get("allow_network", ""))
 
     if experiment:
         objective = get_experiment(experiment)
@@ -674,13 +679,14 @@ async def run(request: Request):
             JsonlLogger(str(log_path)),
             experiment,
             max_attempts_override=max_attempts,
+            allow_network=allow_network,
         )
         result["log_file"] = log_path.name
 
-    return render_result(result, mode, max_attempts, base_url)
+    return render_result(result, mode, max_attempts, base_url, allow_network)
 
 
-def render_result(result: dict, mode: str, max_attempts: int, base_url: str) -> HTMLResponse:
+def render_result(result: dict, mode: str, max_attempts: int, base_url: str, allow_network: bool = False) -> HTMLResponse:
     trace_items = "\n".join(f"<li><code>{esc(trace_id)}</code></li>" for trace_id in result.get("trace_ids", []))
     observation_items = "\n".join(f"<li>{esc(item)}</li>" for item in result.get("observations", []))
     return render_template(
@@ -697,6 +703,7 @@ def render_result(result: dict, mode: str, max_attempts: int, base_url: str) -> 
         experiment=esc(normalize_experiment_name(result.get("experiment"))),
         log_file=esc(result.get("log_file", "not written")),
         mode=esc(mode),
+        network=esc("enabled" if allow_network else "none"),
         max_attempts=esc(max_attempts),
         base_url=esc(base_url),
     )

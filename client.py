@@ -55,10 +55,16 @@ class AgentRunClient:
 
         raise AgentRunError(f"engine_unreachable: {last_error or self.base_url}")
 
-    def run(self, task: str, max_attempts: int = 1) -> AgentRunResult:
+    def run(self, task: str, max_attempts: int = 1, allow_network: bool = False) -> AgentRunResult:
         self.check_reachable()
         trace_id = str(uuid.uuid4())
-        payload = json.dumps({"objective": task, "max_attempts": max_attempts}).encode("utf-8")
+        payload = json.dumps(
+            {
+                "objective": task,
+                "max_attempts": max_attempts,
+                "allow_network": bool(allow_network),
+            }
+        ).encode("utf-8")
         req = request.Request(
             f"{self.base_url}/agent-runs",
             data=payload,
