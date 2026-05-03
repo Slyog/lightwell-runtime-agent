@@ -139,11 +139,48 @@
         + '</details>';
     }
 
+    function signalValue(signals, key, fallback = "none") {
+      const value = signals ? signals[key] : undefined;
+      if (Array.isArray(value) || (value && typeof value === "object")) {
+        return JSON.stringify(value);
+      }
+      if (value === undefined || value === null) {
+        return fallback;
+      }
+      return String(value);
+    }
+
+    function renderApiSignals(result) {
+      const signals = result.api_signals;
+      if (!signals || typeof signals !== "object") {
+        return "";
+      }
+
+      const finalSuccess = signals.final_success ?? result.success;
+      const rows = [
+        ["network_reachable", signalValue(signals, "network_reachable")],
+        ["auth_failure_observed", signalValue(signals, "auth_failure_observed")],
+        ["validation_failure_observed", signalValue(signals, "validation_failure_observed")],
+        ["success_observed", signalValue(signals, "success_observed")],
+        ["status_sequence", signalValue(signals, "status_sequence", "[]")],
+        ["final_success", String(finalSuccess)],
+        ["failure_category", signalValue(result, "failure_category")]
+      ];
+
+      return '<section class="result-grid api-signals">'
+        + '<h3 class="wide">API Signals</h3>'
+        + rows.map(([label, value]) => '<div><span>' + escapeHtml(label) + '</span><strong>' + escapeHtml(value) + '</strong></div>').join("")
+        + '</section>';
+    }
+
     function renderAttempt(attempt, index, attempts) {
       const success = attemptSucceeded(attempt);
       const number = attemptNumber(attempt, index);
       const error = getErrorSummary(attempt);
       const strategy = strategySummary(attempt);
+      const attemptSignals = attempt.api_signals
+        ? renderDetails("API signals", JSON.stringify(attempt.api_signals, null, 2), false)
+        : "";
 
       return '<article class="adaptive-attempt ' + (success ? "success" : "failure") + '">'
         + '<div class="attempt-body">'
@@ -159,6 +196,7 @@
         + renderDetails("Code", attempt.code || "", true)
         + renderDetails("Stdout", attempt.stdout || "", false)
         + renderDetails("Stderr", attempt.stderr || "", false)
+        + attemptSignals
         + '</div>'
         + '</div>'
         + '</article>';
@@ -196,7 +234,7 @@
         ? attempts.map(renderAttempt).join("")
         : '<p>No attempts returned.</p>';
       resultPanel.className = "panel";
-      resultPanel.innerHTML = '<h2>Debug run</h2>' + renderMeta(result) + '<div class="adaptive-timeline">' + attemptsHtml + '</div>' + renderFinalResult(result, attempts);
+      resultPanel.innerHTML = '<h2>Debug run</h2>' + renderMeta(result) + renderApiSignals(result) + '<div class="adaptive-timeline">' + attemptsHtml + '</div>' + renderFinalResult(result, attempts);
       resultPanel.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 

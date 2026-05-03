@@ -478,6 +478,37 @@ def display_failure_category(success, failure_category) -> str:
     return "none" if success is True else str(failure_category or "unknown")
 
 
+def api_signal_value(signals: dict, key: str, fallback="none") -> str:
+    value = signals.get(key)
+    if isinstance(value, (dict, list)):
+        return json.dumps(value)
+    if value is None:
+        return str(fallback)
+    return str(value).lower() if isinstance(value, bool) else str(value)
+
+
+def render_api_signals(result: dict) -> str:
+    signals = result.get("api_signals")
+    if not isinstance(signals, dict):
+        return ""
+
+    final_success = signals.get("final_success", result.get("success"))
+    rows = [
+        ("network_reachable", api_signal_value(signals, "network_reachable")),
+        ("auth_failure_observed", api_signal_value(signals, "auth_failure_observed")),
+        ("validation_failure_observed", api_signal_value(signals, "validation_failure_observed")),
+        ("success_observed", api_signal_value(signals, "success_observed")),
+        ("status_sequence", api_signal_value(signals, "status_sequence", "[]")),
+        ("final_success", api_signal_value({"final_success": final_success}, "final_success")),
+        ("failure_category", display_failure_category(result.get("success"), result.get("failure_category"))),
+    ]
+    rows_html = "\n".join(
+        f"<div><span>{esc(label)}</span><strong>{esc(value)}</strong></div>"
+        for label, value in rows
+    )
+    return f'<section class="panel result-grid"><h2 class="wide">API Signals</h2>{rows_html}</section>'
+
+
 def latest_run_summary() -> str:
     runs = list_runs(LOG_DIR)
     if not runs:
@@ -699,6 +730,7 @@ def render_result(result: dict, mode: str, max_attempts: int, base_url: str, all
         stderr=esc(result.get("final_stderr")),
         trace_ids=trace_items or "<li>none</li>",
         observations=observation_items or "<li>none</li>",
+        api_signals_section=render_api_signals(result),
         task=esc(result.get("task", "")),
         experiment=esc(normalize_experiment_name(result.get("experiment"))),
         log_file=esc(result.get("log_file", "not written")),
