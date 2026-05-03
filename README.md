@@ -1,6 +1,8 @@
 # AI Execution System – Tracewell Runtime (UI Layer)
 
-Execution Trace Runtime is the UI and observability layer of a 3-part AI execution system.
+Tracewell Runtime is the UI and observability layer of a 3-part AI execution system.
+
+This UI makes execution traces visible — so you can see how code fails, why it fails, and how it gets fixed.
 
 It visualizes how code is executed, how failures are detected, and how repair decisions are applied across multiple attempts.
 
@@ -12,11 +14,11 @@ It visualizes how code is executed, how failures are detected, and how repair de
 
 This repository is part of a 3-layer execution system:
 
-| Layer | Role |
-|---|---|
-| **AI-Execution-Engine** | Executes Python code in an isolated Docker runtime. Produces `stdout`, `stderr`, `exit_code` as ground truth. |
-| **adaptive-execution** | Interprets runtime failures. Maps failures to deterministic repair strategies. Retries until success. |
-| **Tracewell Runtime** *(this repo)* | Visualizes execution traces, API signals, and decision flow. |
+| Layer | Role | Repo |
+|---|---|---|
+| **AI-Execution-Engine** | Executes Python code in an isolated Docker runtime. Produces `stdout`, `stderr`, `exit_code` as ground truth. | [Slyog/AI-Execution-Engine](https://github.com/Slyog/AI-Execution-Engine) |
+| **adaptive-execution** | Interprets runtime failures. Maps failures to deterministic repair strategies. Retries until success. | [Slyog/adaptive-execution](https://github.com/Slyog/adaptive-execution) |
+| **Tracewell Runtime** *(this repo)* | Visualizes execution traces, API signals, and decision flow. | [Slyog/execution-trace-ui](https://github.com/Slyog/execution-trace-ui) |
 
 **Architecture:**
 
@@ -50,10 +52,10 @@ It is not responsible for execution or decision-making — it only surfaces what
 execute → observe → decision → execute → observe → decision → execute → observe
 ```
 
-Each attempt is:
+Each attempt in the system is:
 
-1. Generated
-2. Executed in Docker
+1. Proposed by adaptive-execution
+2. Executed in Docker by AI-Execution-Engine
 3. Observed via real output
 4. Interpreted into signals
 5. Repaired deterministically
@@ -112,7 +114,8 @@ The adaptive retry demo starts from a broken API request and reaches a working r
 
 ## Key Idea
 
-> **LLM is not the source of truth. Execution is the source of truth.**
+> LLMs can propose actions.  
+> Only execution determines if they are correct.
 
 - Most tools infer correctness from code or model output
 - This system executes real code against real APIs
