@@ -3,33 +3,41 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Adaptive Run</title>
+  <title>API Integration Debug Tool</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
   <main class="shell">
     <header class="topbar">
-      <h1>Adaptive Run</h1>
+      <h1>API Integration Debug Tool</h1>
       <nav><a href="/">Home</a><a href="/">New run</a><a href="/adaptive-run">Adaptive run</a><a href="/history">History</a><a href="/experiments">Experiments</a></nav>
     </header>
 
     <section class="panel">
-      <h2>Adaptive Execution</h2>
-      <p class="muted">POST /adaptive-execution/run</p>
+      <h2>Integration Debug Timeline</h2>
+      <p class="muted">Powered by adaptive execution repair attempts.</p>
     </section>
 
     <form id="adaptive-form" class="panel">
       <label>
-        Objective
-        <textarea id="objective" name="objective" rows="7">write Python code that calculates 10 divided by 0 and prints the result without using try except</textarea>
+        Endpoint URL
+        <input id="endpoint-url" name="endpoint_url" type="url" placeholder="https://api.example.com/resource" required>
       </label>
 
       <div class="grid">
         <label>
-          Max attempts
-          <input id="max-attempts" name="max_attempts" type="number" min="1" max="10" value="3">
+          Method
+          <select id="method" name="method">
+            <option value="GET">GET</option>
+            <option value="POST">POST</option>
+          </select>
         </label>
       </div>
+
+      <label>
+        JSON body
+        <textarea id="json-body" name="json_body" rows="7" placeholder='{"hello": "world"}'></textarea>
+      </label>
 
       <button id="run-button" type="submit">Run</button>
     </form>
@@ -41,8 +49,9 @@
   <script>
     const endpoint = $adaptive_execution_api_url;
     const form = document.getElementById("adaptive-form");
-    const objectiveInput = document.getElementById("objective");
-    const maxAttemptsInput = document.getElementById("max-attempts");
+    const endpointUrlInput = document.getElementById("endpoint-url");
+    const methodInput = document.getElementById("method");
+    const jsonBodyInput = document.getElementById("json-body");
     const runButton = document.getElementById("run-button");
     const statusPanel = document.getElementById("status-panel");
     const resultPanel = document.getElementById("result-panel");
@@ -68,31 +77,48 @@
 
     function renderMeta(result) {
       return '<section class="result-grid">'
-        + '<div><span>objective</span><strong>' + escapeHtml(result.objective) + '</strong></div>'
         + '<div><span>success</span><strong>' + escapeHtml(result.success) + '</strong></div>'
+        + '<div><span>attempts</span><strong>' + escapeHtml(Array.isArray(result.attempts) ? result.attempts.length : 0) + '</strong></div>'
         + '</section>';
     }
 
-    function renderAttempt(attempt) {
-      const success = Boolean(attempt.success);
-      let details = "";
-      if (success) {
-        details = '<div><span>exit_code</span><strong>' + escapeHtml(attempt.exit_code) + '</strong></div>'
-          + '<div class="wide"><span>stdout</span><pre>' + escapeHtml(attempt.stdout) + '</pre></div>';
-      } else {
-        details = '<div><span>error_type</span><strong>' + escapeHtml(attempt.error_type || "unknown") + '</strong></div>'
-          + '<div><span>strategy</span><strong>' + escapeHtml(attempt.strategy || "none") + '</strong></div>'
-          + '<div class="wide"><span>error_message</span><pre>' + escapeHtml(attempt.error_message) + '</pre></div>'
-          + '<div class="wide"><span>stderr</span><pre>' + escapeHtml(attempt.stderr) + '</pre></div>';
+    function attemptNumber(attempt, index) {
+      return attempt.attempt_number ?? attempt.attempt ?? index + 1;
+    }
+
+    function attemptSucceeded(attempt) {
+      if (typeof attempt.success === "boolean") {
+        return attempt.success;
       }
+      return Number(attempt.exit_code) === 0;
+    }
+
+    function attemptLabel(attempt, index, total) {
+      const success = attemptSucceeded(attempt);
+      if (total > 1 && index > 0) {
+        return success ? "repaired" : "repair failed";
+      }
+      return success ? "success" : "failed";
+    }
+
+    function renderAttempt(attempt, index, attempts) {
+      const success = attemptSucceeded(attempt);
+      const number = attemptNumber(attempt, index);
+      const label = attemptLabel(attempt, index, attempts.length);
 
       return '<article class="adaptive-attempt ' + (success ? "success" : "failure") + '">'
-        + '<div class="attempt-marker">' + escapeHtml(attempt.attempt_number) + '</div>'
+        + '<div class="attempt-marker">' + escapeHtml(number) + '</div>'
         + '<div class="attempt-body">'
-        + '<div class="attempt-heading"><h3>Attempt ' + escapeHtml(attempt.attempt_number) + '</h3><strong>' + (success ? "success" : "failed") + '</strong></div>'
-        + '<div class="result-grid">' + details + '</div>'
+        + '<div class="attempt-heading"><h3>Attempt ' + escapeHtml(number) + ' (' + escapeHtml(label) + ')</h3><strong>' + escapeHtml(label) + '</strong></div>'
         + '<h4>code</h4>'
         + '<pre><code>' + escapeHtml(attempt.code) + '</code></pre>'
+        + '<div class="result-grid">'
+        + '<div class="wide"><span>stdout</span><pre>' + escapeHtml(attempt.stdout) + '</pre></div>'
+        + '<div class="wide"><span>stderr</span><pre>' + escapeHtml(attempt.stderr) + '</pre></div>'
+        + '<div><span>exit_code</span><strong>' + escapeHtml(attempt.exit_code) + '</strong></div>'
+        + '<div><span>error_type</span><strong>' + escapeHtml(attempt.error_type || "none") + '</strong></div>'
+        + '<div><span>strategy</span><strong>' + escapeHtml(attempt.strategy || "none") + '</strong></div>'
+        + '</div>'
         + '</div>'
         + '</article>';
     }
@@ -104,6 +130,15 @@
         : '<p>No attempts returned.</p>';
       resultPanel.className = "panel";
       resultPanel.innerHTML = '<h2>Result</h2>' + renderMeta(result) + '<div class="adaptive-timeline">' + attemptsHtml + '</div>';
+      resultPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function buildObjective() {
+      return "Call this API endpoint using Python requests.\n"
+        + "URL: " + endpointUrlInput.value.trim() + "\n"
+        + "Method: " + methodInput.value + "\n"
+        + "Body: " + jsonBodyInput.value.trim() + "\n"
+        + "Print the full response and handle errors.";
     }
 
     form.addEventListener("submit", async (event) => {
@@ -111,11 +146,11 @@
       hideResults();
       showStatus("Running adaptive execution...", "loading");
       runButton.disabled = true;
-      runButton.textContent = "Running";
+      runButton.textContent = "Running...";
 
       const payload = {
-        objective: objectiveInput.value.trim(),
-        max_attempts: Number(maxAttemptsInput.value || 3)
+        objective: buildObjective(),
+        max_attempts: 3
       };
 
       try {
@@ -135,6 +170,7 @@
         renderResult(result);
       } catch (error) {
         showStatus("Request failed: " + error.message, "error");
+        statusPanel.scrollIntoView({ behavior: "smooth", block: "start" });
       } finally {
         runButton.disabled = false;
         runButton.textContent = "Run";
