@@ -7,6 +7,8 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from string import Template
+from urllib import error as urlerror
+from urllib import request as urlrequest
 from urllib.parse import parse_qs
 from urllib.parse import quote
 
@@ -28,6 +30,7 @@ LOG_DIR = BASE_DIR
 DATA_DIR = BASE_DIR / "data"
 ADAPTIVE_RUN_HISTORY_PATH = DATA_DIR / "adaptive_runs.jsonl"
 DEFAULT_ADAPTIVE_EXECUTION_BASE_URL = "https://stunning-space-happiness-69j455w46v4247p7-8880.app.github.dev"
+LOCAL_ADAPTIVE_EXECUTION_ENDPOINT = "http://127.0.0.1:8880/adaptive-execution/run"
 
 app = FastAPI(title="Lightwell Playground")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -682,8 +685,35 @@ def index():
 
 @app.get("/adaptive-run", response_class=HTMLResponse)
 def adaptive_run():
-    endpoint = adaptive_execution_endpoint(os.environ.get("ADAPTIVE_EXECUTION_API_URL"))
+    endpoint = "/adaptive-execution/run-proxy"
     return render_template("adaptive_run.html", adaptive_execution_api_url=json.dumps(endpoint))
+
+
+@app.post("/adaptive-execution/run-proxy")
+async def adaptive_execution_run_proxy(request: Request):
+    body = await request.body()
+    target = os.environ.get("ADAPTIVE_EXECUTION_INTERNAL_URL") or LOCAL_ADAPTIVE_EXECUTION_ENDPOINT
+    req = urlrequest.Request(
+        target,
+        data=body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urlrequest.urlopen(req, timeout=180) as response:
+            raw = response.read().decode("utf-8")
+            status_code = response.status
+    except urlerror.HTTPError as exc:
+        raw = exc.read().decode("utf-8", errors="replace")
+        return JSONResponse({"error": raw or str(exc)}, status_code=exc.code)
+    except (urlerror.URLError, TimeoutError) as exc:
+        return JSONResponse({"error": str(exc)}, status_code=502)
+
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return PlainTextResponse(raw, status_code=status_code)
+    return JSONResponse(data, status_code=status_code)
 
 
 @app.post("/adaptive-runs/history")
