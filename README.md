@@ -25,6 +25,29 @@ Attempt 3 -> success
   stdout = user created
 ```
 
+## Adaptive Retry Demo
+
+The adaptive retry demo starts from a broken API request and reaches a working request through deterministic runtime feedback.
+
+Event flow:
+
+```text
+execute -> observe -> decision -> execute -> observe -> decision -> execute -> observe
+```
+
+1. Attempt 1 executes a request without an `Authorization` header.
+2. The API returns `401`.
+3. The system observes `auth_failure_observed=true`.
+4. The decision step applies a deterministic rule: add the `Authorization` header.
+5. Attempt 2 executes with authorization, but the payload still sends `age` as a string.
+6. The API returns `400`.
+7. The system observes `validation_failure_observed=true`.
+8. The decision step applies a deterministic rule: fix the payload type.
+9. Attempt 3 executes with authorization and a valid integer `age`.
+10. The API returns `200`.
+
+There is no LLM decision-making in this retry path. The retry rules are deterministic, and the Docker runtime executes real Python code for each attempt. Lightwell shows both the API Signals and the Adaptive Event Chain in the run detail page, so the demo visibly proves the sequence from failed auth to fixed validation to final success.
+
 ## Why This Matters
 
 - Most tools guess from code or model output.
