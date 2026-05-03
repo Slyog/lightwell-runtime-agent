@@ -487,6 +487,21 @@ def api_signal_value(signals: dict, key: str, fallback="none") -> str:
     return str(value).lower() if isinstance(value, bool) else str(value)
 
 
+def latest_adaptive_api_signals(run_item: dict) -> dict | None:
+    signals = run_item.get("api_signals")
+    if isinstance(signals, dict):
+        return signals
+    attempts = run_item.get("attempts") if isinstance(run_item.get("attempts"), list) else []
+    for attempt in reversed(attempts):
+        if isinstance(attempt, dict) and isinstance(attempt.get("api_signals"), dict):
+            return attempt["api_signals"]
+    events = run_item.get("events") if isinstance(run_item.get("events"), list) else []
+    for event in reversed(events):
+        if isinstance(event, dict) and isinstance(event.get("api_signals"), dict):
+            return event["api_signals"]
+    return None
+
+
 def render_api_signals(result: dict) -> str:
     signals = result.get("api_signals")
     if not isinstance(signals, dict):
@@ -507,6 +522,97 @@ def render_api_signals(result: dict) -> str:
         for label, value in rows
     )
     return f'<section class="panel result-grid"><h2 class="wide">API Signals</h2>{rows_html}</section>'
+
+
+def event_attempt(attempts: list[dict], attempt_number) -> dict:
+    for attempt in attempts:
+        if isinstance(attempt, dict) and str(adaptive_attempt_number(attempt, -1)) == str(attempt_number):
+            return attempt
+    return {}
+
+
+def generated_action_summary(event: dict, attempt: dict) -> str:
+    code = str(event.get("code") or attempt.get("code") or "")
+    parts = []
+    if "host.docker.internal" in code:
+        parts.append("target host.docker.internal")
+    if "Authorization" in code:
+        parts.append("with Authorization header")
+    else:
+        parts.append("without Authorization header")
+    if '"age": 25' in code or "'age': 25" in code:
+        parts.append("valid payload types")
+    elif '"age": \'25\'' in code or "'age': '25'" in code or '"age": "25"' in code:
+        parts.append("invalid age type")
+    return ", ".join(parts) if parts else "generated request"
+
+
+def decision_next_attempt_strategy(event: dict) -> str:
+    value = event.get("next_attempt_strategy")
+    if value:
+        return str(value)
+    action = str(event.get("action") or "")
+    labels = {
+        "add_authorization_header": "retry with Authorization header",
+        "fix_payload_types": "retry with corrected payload types",
+        "switch_target_to_host_docker_internal": "retry against host.docker.internal",
+        "stop": "stop retrying",
+    }
+    return labels.get(action, action or "none")
+
+
+def render_adaptive_event_timeline(run_item: dict) -> str:
+    events = run_item.get("events") if isinstance(run_item.get("events"), list) else []
+    attempts = run_item.get("attempts") if isinstance(run_item.get("attempts"), list) else []
+    if not events:
+        return "<p>No adaptive event chain recorded for this run.</p>"
+
+    blocks = []
+    for index, event in enumerate(events, start=1):
+        if not isinstance(event, dict):
+            continue
+        event_type = str(event.get("event") or "event")
+        attempt_number = event.get("attempt_number") or event.get("attempt") or ""
+        attempt = event_attempt(attempts, attempt_number)
+        title_attempt = f"Attempt {attempt_number}" if attempt_number != "" else f"Event {index}"
+
+        if event_type == "execute":
+            rows = [
+                ("event", "execute"),
+                ("strategy", attempt.get("strategy") or event.get("strategy") or "deterministic_request"),
+                ("generated action", generated_action_summary(event, attempt)),
+            ]
+        elif event_type == "observe":
+            signals = event.get("api_signals") if isinstance(event.get("api_signals"), dict) else {}
+            rows = [
+                ("event", "observe"),
+                ("status_sequence", api_signal_value(signals, "status_sequence", "[]")),
+                ("failure_category", api_signal_value(signals, "failure_category")),
+                ("final_success", api_signal_value(signals, "final_success")),
+            ]
+        elif event_type == "decision":
+            rows = [
+                ("event", "decision"),
+                ("reason", event.get("reason") or "none"),
+                ("action", event.get("action") or "none"),
+                ("next_attempt_strategy", decision_next_attempt_strategy(event)),
+            ]
+        else:
+            rows = [("event", event_type)]
+
+        rows_html = "".join(
+            f"<div><span>{esc(label)}</span><strong>{esc(value)}</strong></div>"
+            for label, value in rows
+        )
+        blocks.append(
+            f'<article class="adaptive-event adaptive-event-{esc(event_type)}">'
+            f'<div class="attempt-marker">{esc(attempt_number or index)}</div>'
+            '<div class="attempt-body">'
+            f"<h3>{esc(title_attempt)} {esc(event_type)}</h3>"
+            f'<div class="result-grid">{rows_html}</div>'
+            "</div></article>"
+        )
+    return "\n".join(blocks) or "<p>No adaptive event chain recorded for this run.</p>"
 
 
 def latest_run_summary() -> str:
@@ -580,6 +686,7 @@ async def save_adaptive_run_history(request: Request):
     payload = await request.json()
     result = payload.get("result") if isinstance(payload.get("result"), dict) else payload
     attempts = result.get("attempts") if isinstance(result.get("attempts"), list) else []
+    events = result.get("events") if isinstance(result.get("events"), list) else []
     final_attempt = result.get("final_attempt") if isinstance(result.get("final_attempt"), dict) else final_adaptive_attempt(attempts)
 
     entry = {
@@ -591,6 +698,8 @@ async def save_adaptive_run_history(request: Request):
         "objective": str(payload.get("objective") or result.get("objective") or ""),
         "success": truthy_result(result.get("success")),
         "attempts": attempts,
+        "events": events,
+        "api_signals": result.get("api_signals") if isinstance(result.get("api_signals"), dict) else latest_adaptive_api_signals({"attempts": attempts, "events": events}),
         "final_error_type": final_attempt.get("error_type") or latest_attempt_value(attempts, "error_type"),
         "final_strategy": final_attempt.get("strategy") or latest_attempt_value(attempts, "strategy"),
     }
@@ -629,6 +738,8 @@ def adaptive_run_detail(run_id: str):
 
     view_run_id = run_item.get("_view_run_id") or run_item.get("run_id") or run_id
     summary = adaptive_run_summary(run_item)
+    api_signals = latest_adaptive_api_signals(run_item)
+    run_item_with_signals = {**run_item, "api_signals": api_signals} if isinstance(api_signals, dict) else run_item
 
     return render_template(
         "adaptive_run_detail.html",
@@ -645,6 +756,8 @@ def adaptive_run_detail(run_id: str):
         final_error_type=esc(summary["final_error_type"]),
         final_strategy=esc(summary["final_strategy"]),
         repaired=esc("yes" if summary["repaired"] else "no"),
+        api_signals_section=render_api_signals(run_item_with_signals),
+        event_timeline=render_adaptive_event_timeline(run_item),
         attempts=render_adaptive_attempt_timeline(summary["attempts"]),
     )
 
